@@ -1,0 +1,41 @@
+#!/bin/bash
+
+run_devtools() {
+
+
+    e_header "Checking status of desired Tools..."
+    
+    local tools_directory="$DEVTOOLS_HOME"
+    local maven_version="$MAVEN_VERSION"
+    local mongodb_version="$MONGODB_VERSION"
+    local redis_version="$REDIS_VERSION"
+    pwd=$(pwd)
+    if [[ ! -d "$tools_directory" ]]; then
+        mkdir -p "$tools_directory"
+    fi
+
+    if [[ ! -d "$tools_directory/apache-maven-$maven_version" ]]; then
+        e_header "Installing missing Maven version ${maven_version}..."
+        curl -sSL "http://mirror.softaculous.com/apache/maven/maven-3/${maven_version}/binaries/apache-maven-${maven_version}-bin.tar.gz" | tar xz -C "${tools_directory}"
+        chmod a+x "$tools_directory/apache-maven-$maven_version/bin/mvn"
+        chmod a+x "$tools_directory/apache-maven-$maven_version/bin/mvnDebug"
+        [[ $? ]] && e_success "Done"
+    fi
+    
+    if [[ ! -d "$tools_directory/mongodb-osx-x86_64-${mongodb_version}" ]]; then
+        e_header "Installing missing MongoDB version ${mongodb_version}..."            
+        curl -sSL "https://fastdl.mongodb.org/osx/mongodb-osx-x86_64-${mongodb_version}.tgz" | tar xz -C "${tools_directory}"
+        cd $tools_directory/mongodb-osx-x86_64-${mongodb_version}/bin/ && chmod a+x "*"
+        [[ $? ]] && e_success "Done"
+    fi
+    
+    if [[ ! -d "$tools_directory/redis" ]]; then
+        e_header "Installing missing Redis version ${redis_version}..."            
+        cd $tools_directory && git clone https://github.com/antirez/redis.git
+        cd redis && git checkout ${redis_version}
+        cd src
+        make
+        [[ $? ]] && e_success "Done"
+    fi
+    cd $pwd
+}

@@ -26,7 +26,8 @@
 
     # Custom pretty log
     logp = log --pretty=nice --date-order
-
+    lol = log --oneline --decorate --graph
+    
     # Diffstat log
     logst = log --stat
     # Short format diffstat log
@@ -46,14 +47,21 @@
     excludesfile = ~/.gitignore
     attributesfile = ~/.gitattributes
 
+    
 [credential]
     helper = osxkeychain
 
 [diff]
-    tool = vimdiff
+    tool = opendiff
 
 [difftool]
+    cmd = opendiff \"$LOCAL\" \"$REMOTE\"
     prompt = false
+
+[mergetool]
+    cmd = /Applications/SourceTree.app/Contents/Resources/opendiff-w.sh \"$LOCAL\" \"$REMOTE\" -ancestor \"$BASE\" -merge \"$MERGED\"
+    trustExitCode = true
+
 
 [pretty]
     # tut: http://gitimmersion.com/lab_10.html

@@ -4,10 +4,11 @@
 
 export DISABLE_AUTO_TITLE=true
 
-export MYVIMRC=~/.dotfiles/vimrc
+# Make mate the default editor
+export EDITOR="mate -w"
 
-# Make vim the default editor
-export EDITOR="vim"
+# Make mate the default Git editor and place caret at Line 1
+export GIT_EDITOR="mate -wl1"
 
 # Ignore commands that start with spaces and duplicates
 export HISTCONTROL=ignoreboth
@@ -23,10 +24,6 @@ export HISTFILESIZE=$HISTSIZE
 # Make some commands not show up in history
 export HISTIGNORE="ls:ls *:cd:cd -:pwd;exit:date:* --help"
 
-# Prefer US English and use UTF-8 encoding
-export LANG="en_US"
-export LC_ALL="en_US.UTF-8"
-
 # Don't clear the screen after quitting a manual page
 export MANPAGER="less -X"
 
@@ -37,5 +34,13 @@ export PROMPT_COMMAND="history -a; $PROMPT_COMMAND"
 # Always enable colored `grep` output
 export GREP_OPTIONS="--color=auto";
 
-# Always use JRuby in 1.9 mode
-export JRUBY_OPTS="--1.9"
+# Maven Options
+export MAVEN_OPTS="-Xmx512m -XX:MaxPermSize=512m"
+export M2_REPO=$HOME/.m2/repository/
+
+# Java Home
+export JAVA_HOME=$(/usr/libexec/java_home -v 1.7)
+export M2_HOME=$DEVTOOLS_HOME/apache-maven-$MAVEN_VERSION
+export MAVEN_HOME=$DEVTOOLS_HOME/apache-maven-$MAVEN_VERSION
+
+

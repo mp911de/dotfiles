@@ -9,81 +9,40 @@ run_brew() {
         local -a missing_formulae
         local -a desired_formulae=(
             'coreutils' # GNU core utilities (those that come with OS X are outdated)
-            'findutils' # Install GNU `find`, `locate`, `updatedb`, and `xargs`, `g`-prefixed
             'tree'
             'wget --enable-iri'
             'git'
-            'rsync'
-            'ack'
-            'ctags'
-            'bash'
             'bash-completion'
-            'tmux'
-            'vim --override-system-vi'
-            'postgres'
-            'libsodium'
-            'irssi'
-            'python --with-brewed-openssl'
-            'the_silver_searcher'
             'htop-osx'
-            'imagemagick --with-webp'
-            'node'
-            'icu4c'
             'cmake'
+            'caskroom/cask/brew-cask'
         )
 
         for index in ${!desired_formulae[*]}
         do
             if ! formula_exists ${desired_formulae[$index]}; then
                 # Store the name (and options) of every missing formula
-                missing_formulae=("${missing_formulae[@]}" "${desired_formulae[$index]}")
+                e_header "Installing missing ${desired_formulae[$index]}..."
+                brew install ${desired_formulae[$index]}
+                [[ $? ]] && e_success "Done"
             fi
         done
 
-        if [[ "$missing_formulae" ]]; then
-            # Convert the array of missing formula into a list of space-separate strings
-            list_formulae=$( printf "%s " "${missing_formulae[@]}" )
-
-            e_header "Installing missing Homebrew formulae..."
-            # Install all missing formulae
-            brew install $list_formulae
-
-            [[ $? ]] && e_success "Done"
-        fi
 
         # Uninstall previous versions to make sure we're using --HEAD
 
-        if formula_exists "ruby-install"; then brew uninstall ruby-install; fi
-        brew install ruby-install --HEAD
+        #if formula_exists "ruby-install"; then brew uninstall ruby-install; fi
+        #brew install ruby-install --HEAD
 
-        if formula_exists "chruby"; then brew uninstall chruby; fi
-        brew install chruby --HEAD
+        #if formula_exists "chruby"; then brew uninstall chruby; fi
+        #brew install chruby --HEAD
 
-        if formula_exists "gem_home"; then brew uninstall gem_home; fi
-        brew install --HEAD https://raw.github.com/postmodern/gem_home/master/homebrew/gem_home.rb
+        #if formula_exists "gem_home"; then brew uninstall gem_home; fi
+        #brew install --HEAD https://raw.github.com/postmodern/gem_home/master/homebrew/gem_home.rb
 
         # Support installing applications that are distributed as binaries.
-        brew install caskroom/cask/brew-cask
-
-        brew cask install firefox
-        brew cask install flash
-        brew cask install google-chrome
-        brew cask install iterm2
-        brew cask install pgadmin3
-        brew cask install github
-        brew cask install gitter
-        brew cask install slack
-        brew cask install transmission
-        brew cask install virtualbox
-        brew cask install vlc
-        brew cask install skype
-        brew cask install the-unarchiver
-        brew cask install openoffice
-        brew cask install insomniax
-        brew cask install itunes-volume-control
-        brew cask install osxfuse
-        brew cask install mediathekview
-
+        brew cask install sourcetree
+        
         # Remove outdated versions from the Cellar
         brew cleanup
     else

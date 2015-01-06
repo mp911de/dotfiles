@@ -1,8 +1,8 @@
 #!/bin/bash
 
 DOTFILES_DIRECTORY="${HOME}/.dotfiles"
-DOTFILES_TARBALL_PATH="https://github.com/snusnu/dotfiles/tarball/master"
-DOTFILES_GIT_REMOTE="https://github.com/snusnu/dotfiles"
+DOTFILES_TARBALL_PATH="https://github.com/mp911de/dotfiles/tarball/master"
+DOTFILES_GIT_REMOTE="https://github.com/mp911de/dotfiles"
 
 # If missing, download and extract the dotfiles repository
 if [[ ! -d ${DOTFILES_DIRECTORY} ]]; then
@@ -21,7 +21,9 @@ cd ${DOTFILES_DIRECTORY}
 source ./lib/help
 source ./lib/utils
 source ./lib/brew
+source ./lib/devtools
 source ./lib/ruby
+source ${DOTFILES_DIRECTORY}/devtools
 
 # Help text
 if [[ "$1" == "-h" || "$1" == "--help" ]]; then
@@ -96,6 +98,7 @@ if [[ $no_packages ]]; then
 else
     e_header "Installing homebrew packages ..."
     run_brew
+    run_devtools
 fi
 
 # Force create/replace the symlink.
@@ -115,13 +118,12 @@ link_dotfiles() {
     link "git/gitignore"     ".gitignore"
     link "ackrc"             ".ackrc"
     link "aprc"              ".aprc"
-    link "cvsignore"         ".cvsignore"
     link "gemrc"             ".gemrc"
     link "irbrc"             ".irbrc"
     link "pryrc"             ".pryrc"
     link "ruby-version"      ".ruby-version"
-    link "tmux.conf"         ".tmux.conf"
-    link "vimrc"             ".vimrc"
+    link "devtools"          ".devtools"
+
 }
 
 # Copy `.gitconfig`.
@@ -149,27 +151,6 @@ e_header "Installing custom software ..."
 printf "The sudo password is needed to add brewed bash to /etc/shells and enable htop ..."
 
 sudo bash -c "echo \"/usr/local/bin/bash\" >> /etc/shells"
-
-# Enable htop
-sudo chown root:wheel /usr/local/Cellar/htop-osx/0.8.2.2/bin/htop
-sudo chmod u+s /usr/local/Cellar/htop-osx/0.8.2.2/bin/htop
-
-# Initialize postgres
-initdb /usr/local/var/postgres -E utf8
-ln -sfv /usr/local/opt/postgresql/*.plist ~/Library/LaunchAgents
-launchctl load ~/Library/LaunchAgents/homebrew.mxcl.postgresql.plist
-
-e_header "Bundling vim plugins ..."
-vim +PluginInstall +qall
-
-e_header "Updating python setuptools and pip ..."
-pip install --upgrade setuptools
-pip install --upgrade pip
-
-e_header "Installing ipython ..."
-pip install ipython[all]
-
-customize_ruby
 
 # Ask before potentially overwriting OS X defaults
 seek_confirmation "Warning: This step may modify your OS X system defaults."

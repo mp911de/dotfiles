@@ -11,10 +11,12 @@ load_dotfiles() {
         $HOME/.dotfiles/bash/bash_prompt      # Custom bash prompt
         $HOME/.bash_profile.local             # Local and private settings not under version control (e.g. git credentials)
         $HOME/.dotfiles/bash/bash_paths       # Path modifications (must source after `.bash_profile.local` in case of custom `brew` location)
-        /usr/local/share/chruby/chruby.sh     # Enable postmodern/chruby
-        /usr/local/share/chruby/auto.sh       # Enable autoswitching of rubies
-        /usr/local/share/gem_home/gem_home.sh # Support changing $GEM_HOME
     )
+
+    #        /usr/local/share/chruby/chruby.sh     # Enable postmodern/chruby
+    #        /usr/local/share/chruby/auto.sh       # Enable autoswitching of rubies
+    #        /usr/local/share/gem_home/gem_home.sh # Support changing $GEM_HOME
+
 
     # if these files are readable, source them
     for index in ${!files[*]}
@@ -31,6 +33,7 @@ if [[ -r $(brew --prefix)/etc/bash_completion ]]; then
     source $(brew --prefix)/etc/bash_completion
 fi
 
+source $HOME/.devtools
 # set 256 color profile where possible
 if [[ $COLORTERM == gnome-* && $TERM == xterm ]] && infocmp gnome-256color >/dev/null 2>&1; then
     export TERM=gnome-256color
