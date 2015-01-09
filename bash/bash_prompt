@@ -140,10 +140,10 @@ set_prompts() {
     PS1+="\[$hostStyle\]\h" # host
     PS1+="\[$reset$white\]:"
     PS1+="\[$green\]\w" # working directory
-    PS1+="\[$reset$white\] \$ \[$reset\]" # $ (and reset color)
+    PS1+="\[$reset$white\] \$\[$reset\] " # $ (and reset color)
 
     export PS1
 }
-
+stty columns 1000
 set_prompts
 unset set_prompts

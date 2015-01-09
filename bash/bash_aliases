@@ -11,6 +11,11 @@ alias ...="cd ../.."
 alias ~="cd ~"
 alias -- -="cd -"
 
+alias m1st="mvn install -T1C -DskipTests"
+alias m1cst="mvn clean install -T1C -DskipTests"
+alias m1c="mvn clean install -T1C"
+alias m1="mvn install -T1C"
+
 alias bi="bundle install"
 alias bu="bundle update"
 alias be="bundle exec"
