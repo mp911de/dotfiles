@@ -144,6 +144,6 @@ set_prompts() {
 
     export PS1
 }
-stty columns 1000
-set_prompts
+#stty columns 80
+#set_prompts
 unset set_prompts
