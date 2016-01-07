@@ -20,6 +20,11 @@ alias bi="bundle install"
 alias bu="bundle update"
 alias be="bundle exec"
 
+alias gp="git pull"
+alias gfu="git fetch upstream"
+alias gru="git rebase upstream/master"
+alias gmu="git merge upstream/master"
+
 # List dir contents aliases
 # ref: http://ss64.com/osx/ls.html
 # Long form no user group, color
