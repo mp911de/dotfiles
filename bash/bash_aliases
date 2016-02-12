@@ -25,6 +25,11 @@ alias gfu="git fetch upstream"
 alias gru="git rebase upstream/master"
 alias gmu="git merge upstream/master"
 
+alias cass="cd ${HOME}/git/spring-data-cassandra"
+alias redis="cd ${HOME}/git/spring-data-redis"
+alias lettuce="cd ${HOME}/git/lettuce"
+alias spinach="cd ${HOME}/git/spinach"
+
 # List dir contents aliases
 # ref: http://ss64.com/osx/ls.html
 # Long form no user group, color
