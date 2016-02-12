@@ -1,0 +1,22 @@
+#!/bin/bash
+if [[ "$1" == "" ]] ; then
+	echo "Usage: get-cassandra VERSION" >&2
+	exit 1
+fi
+
+if [[ "$1" == "list" ]] ; then
+	curl http://www.eu.apache.org/dist/cassandra/
+	exit;
+fi
+
+VERSION=${1}
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+URL=http://www.eu.apache.org/dist/cassandra/${VERSION}/apache-cassandra-${VERSION}-bin.tar.gz
+
+. ${DIR}/../devtools
+
+cd ${DEVTOOLS_HOME}
+
+curl -L ${URL} | tar xzf -
+
+echo "Installed Cassandra ${VERSION} in ${DEVTOOLS_HOME}"
