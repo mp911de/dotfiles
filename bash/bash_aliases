@@ -24,6 +24,7 @@ alias gp="git pull"
 alias gfu="git fetch upstream"
 alias gru="git rebase upstream/master"
 alias gmu="git merge upstream/master"
+alias tower="gittower ."
 
 alias cass="cd ${HOME}/git/spring-data-cassandra"
 alias redis="cd ${HOME}/git/spring-data-redis"
