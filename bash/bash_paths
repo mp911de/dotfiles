@@ -10,13 +10,12 @@ declare -a dirs_to_prepend=(
 # Directories to be appended to PATH
 declare -a dirs_to_append=(
     "/usr/bin"
-    "$HOME/bin"
-    "$HOME/.dotfiles/bin"
-    "$DEVTOOLS_HOME/apache-maven-$MAVEN_VERSION/bin"
-    "$DEVTOOLS_HOME/mongodb-osx-x86_64-$MONGODB_VERSION/bin"
-    "$DEVTOOLS_HOME/redis/src"
-    "$(brew --prefix coreutils)/libexec/gnubin" # Add brew-installed GNU core utilities bin
-    "$(brew --prefix)/share/npm/bin" # Add npm-installed package bin
+    "${HOME}/bin"
+    "${HOME}/.dotfiles/bin"
+    "${DEVTOOLS_HOME}/apache-maven-${MAVEN_VERSION}/bin"
+    "${DEVTOOLS_HOME}/mongodb-osx-x86_64-${MONGODB_VERSION}/bin"
+    "${DEVTOOLS_HOME}/redis/src"
+    "${BREW_COREUTILS_DIR}/libexec/gnubin" # Add brew-installed GNU core utilities bin
 )
 
 # Prepend directories to PATH
