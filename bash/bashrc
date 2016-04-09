@@ -1,8 +1,7 @@
 #!/bin/bash
 
 # bashrc
-
 [ -n "$PS1" ] && source ~/.bash_profile
 
 # added by travis gem
-[ -f /Users/mark/.travis/travis.sh ] && source /Users/mark/.travis/travis.sh
+#[ -f /Users/mark/.travis/travis.sh ] && source /Users/mark/.travis/travis.sh

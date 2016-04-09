@@ -31,6 +31,16 @@ alias redis="cd ${HOME}/git/spring-data-redis"
 alias lettuce="cd ${HOME}/git/lettuce"
 alias spinach="cd ${HOME}/git/spinach"
 
+importprfunction() {
+    curl -L ${1}.patch | git am --ignore-whitespace
+}
+
+alias importpr=importprfunction
+alias cass-2="cd /Entwicklung/tools/apache-cassandra-2.2.5/bin"
+alias cass-3="cd /Entwicklung/tools/apache-cassandra-3.3/bin"
+
+
+
 # List dir contents aliases
 # ref: http://ss64.com/osx/ls.html
 # Long form no user group, color
