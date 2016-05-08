@@ -1,0 +1,37 @@
+# Directories to be prepended to PATH
+dirs_to_prepend=(
+    "/usr/local/bin" # Ensure that this bin always takes precedence over `/usr/bin`
+)
+
+# Directories to be appended to PATH
+dirs_to_append=(
+    "/usr/bin"
+    "${HOME}/bin"
+    "${HOME}/.dotfiles/bin"
+    "${DEVTOOLS_HOME}/apache-maven-${MAVEN_VERSION}/bin"
+    "${DEVTOOLS_HOME}/mongodb-osx-x86_64-${MONGODB_VERSION}/bin"
+    "${DEVTOOLS_HOME}/redis/src"
+    "${BREW_COREUTILS_DIR}/libexec/gnubin" # Add brew-installed GNU core utilities bin
+)
+
+# Prepend directories to PATH
+for item in ${dirs_to_prepend}
+do
+    if [ -d ${item} ]; then
+        # If these directories exist, then prepend them to existing PATH
+        PATH="${item}:$PATH"
+    fi
+done
+
+# Append directories to PATH
+for item in ${dirs_to_append}
+do
+    if [ -d ${item} ]; then
+        # If these bins exist, then append them to existing PATH
+        PATH="$PATH:${item}"
+    fi
+done
+
+unset dirs_to_prepend dirs_to_append
+
+export PATH

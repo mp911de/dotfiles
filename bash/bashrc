@@ -4,4 +4,7 @@
 [ -n "$PS1" ] && source ~/.bash_profile
 
 # added by travis gem
-#[ -f /Users/mark/.travis/travis.sh ] && source /Users/mark/.travis/travis.sh
+<<<<<<< 53e9bcd7a2b24c36de4c9947e58819d7ab2dc2e9
+[ -f /Users/mark/.travis/travis.sh ] && source /Users/mark/.travis/travis.sh
+
+export PATH="$PATH:$HOME/.rvm/bin" # Add RVM to PATH for scripting

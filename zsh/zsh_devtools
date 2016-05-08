@@ -1,0 +1,14 @@
+# Maven Options
+export MAVEN_OPTS="-Xmx512m"
+export M2_REPO=$HOME/.m2/repository/
+
+# Java Home
+export JAVA_HOME=$(/usr/libexec/java_home -v 1.8)
+export M2_HOME=$DEVTOOLS_HOME/apache-maven-$MAVEN_VERSION
+export MAVEN_HOME=$DEVTOOLS_HOME/apache-maven-$MAVEN_VERSION
+
+# Make mate the default editor
+export EDITOR="mate -w"
+
+# Make mate the default Git editor and place caret at Line 1
+export GIT_EDITOR="mate -wl1"
