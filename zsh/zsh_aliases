@@ -37,7 +37,7 @@ importprfunction() {
 
 alias importpr=importprfunction
 alias cass-2="cd /Entwicklung/tools/apache-cassandra-2.2.5/bin"
-alias cass-3="cd /Entwicklung/tools/apache-cassandra-3.3/bin"
+alias cass-3="cd /Entwicklung/tools/apache-cassandra-3.7/bin"
 
 # List dir contents aliases
 # ref: http://ss64.com/osx/ls.html
