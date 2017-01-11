@@ -5,13 +5,13 @@ if [[ "$1" == "" ]] ; then
 fi
 
 if [[ "$1" == "list" ]] ; then
-	curl http://www.eu.apache.org/dist/cassandra/
+	curl http://archive.apache.org/dist/cassandra/
 	exit;
 fi
 
 VERSION=${1}
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-URL=http://www.eu.apache.org/dist/cassandra/${VERSION}/apache-cassandra-${VERSION}-bin.tar.gz
+URL=http://archive.apache.org/dist/cassandra/${VERSION}/apache-cassandra-${VERSION}-bin.tar.gz
 
 . ${DIR}/../devtools
 
