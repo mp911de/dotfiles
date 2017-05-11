@@ -42,6 +42,9 @@ alias tower="gittower ."
 alias sdr="cd ${HOME}/git/spring-data-redis"
 alias sdm="cd ${HOME}/git/spring-data-mongodb"
 alias sdc="cd ${HOME}/git/spring-data-cassandra"
+alias sv="cd ${HOME}/git/spring-vault"
+alias scv="cd ${HOME}/git/spring-cloud-vault-config"
+alias scvs="cd ${HOME}/git/spring-cloud-vault-config-samples"
 alias lettuce="cd ${HOME}/git/lettuce"
 alias spinach="cd ${HOME}/git/spinach"
 
@@ -51,7 +54,7 @@ importprfunction() {
 
 alias importpr=importprfunction
 alias cass-2="cd /Entwicklung/tools/apache-cassandra-2.2.5/bin"
-alias cass-3="cd /Entwicklung/tools/apache-cassandra-3.7/bin"
+alias cass-3="cd /Entwicklung/tools/apache-cassandra-3.9/bin"
 
 # List dir contents aliases
 # ref: http://ss64.com/osx/ls.html
