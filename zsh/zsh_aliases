@@ -28,6 +28,7 @@ alias gfu="git fetch upstream"
 alias gru="git rebase upstream/master"
 
 alias gmu="git merge upstream/master"
+alias gmf="git merge --ff-only"
 alias gma="git merge --abort"
 
 alias gri="git rebase --interactive"
