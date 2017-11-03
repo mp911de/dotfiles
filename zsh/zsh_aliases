@@ -40,12 +40,12 @@ alias gcpa="git cp --abort"
 
 alias tower="gittower ."
 
-alias sdr="cd ${HOME}/git/spring-data-redis"
-alias sdm="cd ${HOME}/git/spring-data-mongodb"
-alias sdc="cd ${HOME}/git/spring-data-cassandra"
-alias sv="cd ${HOME}/git/spring-vault"
-alias scv="cd ${HOME}/git/spring-cloud-vault"
-alias scvs="cd ${HOME}/git/spring-cloud-vault-config-samples"
+alias sdr="cd ${HOME}/git/data/spring-data-redis"
+alias sdm="cd ${HOME}/git/data/spring-data-mongodb"
+alias sdc="cd ${HOME}/git/data/spring-data-cassandra"
+alias sv="cd ${HOME}/git/spring/spring-vault"
+alias scv="cd ${HOME}/git/cloud/spring-cloud-vault"
+alias scvs="cd ${HOME}/git/me/spring-cloud-vault-config-samples"
 alias lettuce="cd ${HOME}/git/lettuce"
 alias spinach="cd ${HOME}/git/spinach"
 
