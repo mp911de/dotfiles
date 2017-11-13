@@ -45,9 +45,9 @@ alias sdm="cd ${HOME}/git/data/spring-data-mongodb"
 alias sdc="cd ${HOME}/git/data/spring-data-cassandra"
 alias sv="cd ${HOME}/git/spring/spring-vault"
 alias scv="cd ${HOME}/git/cloud/spring-cloud-vault"
-alias scvs="cd ${HOME}/git/me/spring-cloud-vault-config-samples"
-alias lettuce="cd ${HOME}/git/lettuce"
-alias spinach="cd ${HOME}/git/spinach"
+alias scvs="cd ${HOME}/git/cloud/spring-cloud-vault-config-samples"
+alias lettuce="cd ${HOME}/git/me/lettuce"
+alias spinach="cd ${HOME}/git/me/spinach"
 
 importprfunction() {
     curl -L ${1}.patch | git am --ignore-whitespace
