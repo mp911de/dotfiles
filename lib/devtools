@@ -23,8 +23,8 @@ run_devtools() {
     fi
     
     if [[ ! -d "$tools_directory/mongodb-osx-x86_64-${mongodb_version}" ]]; then
-        e_header "Installing missing MongoDB version ${mongodb_version}..."            
-        curl -sSL "https://fastdl.mongodb.org/osx/mongodb-osx-x86_64-${mongodb_version}.tgz" | tar xz -C "${tools_directory}"
+        e_header "Installing missing MongoDB version ${mongodb_version}..."
+        curl -sSL "https://fastdl.mongodb.org/osx/mongodb-macos-x86_64-${mongodb_version}.tgz" | tar xz -C "${tools_directory}"
         cd $tools_directory/mongodb-osx-x86_64-${mongodb_version}/bin/ && chmod a+x "*"
         [[ $? ]] && e_success "Done"
     fi

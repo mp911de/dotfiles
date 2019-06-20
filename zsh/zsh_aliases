@@ -43,6 +43,8 @@ alias tower="gittower ."
 alias sdr="cd ${HOME}/git/data/spring-data-redis"
 alias sdm="cd ${HOME}/git/data/spring-data-mongodb"
 alias sdc="cd ${HOME}/git/data/spring-data-cassandra"
+alias sdb="cd ${HOME}/git/data/spring-data-build"
+alias sdj="cd ${HOME}/git/data/spring-data-jdbc"
 alias sv="cd ${HOME}/git/spring/spring-vault"
 alias scv="cd ${HOME}/git/cloud/spring-cloud-vault"
 alias scvs="cd ${HOME}/git/cloud/spring-cloud-vault-config-samples"
@@ -51,6 +53,14 @@ alias spinach="cd ${HOME}/git/me/spinach"
 
 importprfunction() {
     curl -L ${1}.patch | git am --ignore-whitespace
+}
+
+changeMac() {
+  local mac=$(openssl rand -hex 6 | sed 's/\(..\)/\1:/g; s/.$//')
+  sudo ifconfig en0 ether $mac
+  sudo ifconfig en0 down
+  sudo ifconfig en0 up
+  echo "Your new physical address is $mac"
 }
 
 alias importpr=importprfunction
