@@ -1,5 +1,5 @@
-DEVTOOLS_HOME=/Entwicklung/tools
-MAVEN_VERSION=3.6.1
+DEVTOOLS_HOME=/Users/Shared/Entwicklung/tools
+MAVEN_VERSION=3.8.4
 MONGODB_VERSION=4.1.10
 REDIS_VERSION=4.0.8
 BREW_COREUTILS_DIR=/usr/local/opt/coreutils

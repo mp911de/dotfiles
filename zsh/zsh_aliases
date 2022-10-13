@@ -12,6 +12,11 @@ alias ~="cd ~"
 alias -- -="cd -"
 
 alias m1st="mvn install -T1C -DskipTests"
+alias mist="mvn install -DskipTests"
+alias m1t="mvn test -T1C"
+alias m1vv="mvn verify -T1C"
+alias mvv="mvn verify"
+alias m1st="mvn test -T1C -DskipTests"
 alias m1cst="mvn clean install -T1C -DskipTests"
 alias m1c="mvn clean install -T1C"
 alias m1="mvn install -T1C"
@@ -64,8 +69,7 @@ changeMac() {
 }
 
 alias importpr=importprfunction
-alias cass-2="cd /Entwicklung/tools/apache-cassandra-2.2.5/bin"
-alias cass-3="cd /Entwicklung/tools/apache-cassandra-3.9/bin"
+alias cass-3="cd /Users/Shared//Entwicklung/tools/apache-cassandra-3.11.2/bin"
 
 # List dir contents aliases
 # ref: http://ss64.com/osx/ls.html
