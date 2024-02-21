@@ -70,6 +70,7 @@ changeMac() {
 
 alias importpr=importprfunction
 alias cass-3="cd /Users/Shared//Entwicklung/tools/apache-cassandra-3.11.2/bin"
+alias cass-4="cd /Users/Shared//Entwicklung/tools/apache-cassandra-4.0.0/bin"
 
 # List dir contents aliases
 # ref: http://ss64.com/osx/ls.html
@@ -81,6 +82,9 @@ alias lt="ls -toG"
 alias la="ls -AGFoh"
 # List all except . and ..., color, mark file types, long form no use group, order by last modified, file size
 alias lat="ls -AGFoth"
+
+# MCS search
+alias ms="mcs search"
 
 # Concatenate and print content of files (add line numbers)
 alias catn="cat -n"

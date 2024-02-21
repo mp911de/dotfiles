@@ -6,6 +6,7 @@ Thumbs.db
 # Files that might appear on external disks
 .Spotlight-V100
 .Trashes
+.testrc
 
 # Always-ignore extensions
 *~
@@ -21,3 +22,4 @@ Thumbs.db
 *.gem
 .testrc
 .sdkmanrc
+foo

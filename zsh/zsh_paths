@@ -12,6 +12,7 @@ dirs_to_append=(
     "${DEVTOOLS_HOME}/mongodb-macos-x86_64-${MONGODB_VERSION}/bin"
     "${DEVTOOLS_HOME}/redis/src"
     "/usr/local/mysql/bin"
+		"/opt/homebrew/bin"
     "${BREW_COREUTILS_DIR}/libexec/gnubin" # Add brew-installed GNU core utilities bin
 )
 

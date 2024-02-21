@@ -1,5 +1,5 @@
 # Maven Options
-export MAVEN_OPTS="-Xmx512m"
+export MAVEN_OPTS="-Xmx1G"
 export M2_REPO=$HOME/.m2/repository/
 
 # Java Home

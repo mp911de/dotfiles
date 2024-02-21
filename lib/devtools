@@ -16,7 +16,7 @@ run_devtools() {
 
     if [[ ! -d "$tools_directory/apache-maven-$maven_version" ]]; then
         e_header "Installing missing Maven version ${maven_version}..."
-        curl -sSL "http://mirror.softaculous.com/apache/maven/maven-3/${maven_version}/binaries/apache-maven-${maven_version}-bin.tar.gz" | tar xz -C "${tools_directory}"
+        curl -sSL "https://repo1.maven.org/maven2/org/apache/maven/apache-maven/${maven_version}/apache-maven-${maven_version}-bin.tar.gz" | tar xz -C "${tools_directory}"
         chmod a+x "$tools_directory/apache-maven-$maven_version/bin/mvn"
         chmod a+x "$tools_directory/apache-maven-$maven_version/bin/mvnDebug"
         [[ $? ]] && e_success "Done"
@@ -29,13 +29,13 @@ run_devtools() {
         [[ $? ]] && e_success "Done"
     fi
     
-    if [[ ! -d "$tools_directory/redis" ]]; then
-        e_header "Installing missing Redis version ${redis_version}..."            
-        cd $tools_directory && git clone https://github.com/antirez/redis.git
-        cd redis && git checkout ${redis_version}
-        cd src
-        make
-        [[ $? ]] && e_success "Done"
-    fi
+#    if [[ ! -d "$tools_directory/redis" ]]; then
+#        e_header "Installing missing Redis version ${redis_version}..."            
+#        cd $tools_directory && git clone https://github.com/antirez/redis.git
+#        cd redis && git checkout ${redis_version}
+#        cd src
+#        make
+#        [[ $? ]] && e_success "Done"
+#    fi
     cd $pwd
 }
