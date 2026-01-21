@@ -8,9 +8,10 @@ dirs_to_append=(
     "/usr/bin"
     "${HOME}/bin"
     "${HOME}/.dotfiles/bin"
-    "${DEVTOOLS_HOME}/apache-maven-${MAVEN_VERSION}/bin"
-    "${DEVTOOLS_HOME}/mongodb-macos-x86_64-${MONGODB_VERSION}/bin"
-    "${DEVTOOLS_HOME}/redis/src"
+    "${mongodb_directory}/bin"
+	"${maven_directory}/bin"
+	"${mongodb_tools_directory}/bin"
+    "${redis_directory}/src"
     "/usr/local/mysql/bin"
 		"/opt/homebrew/bin"
     "${BREW_COREUTILS_DIR}/libexec/gnubin" # Add brew-installed GNU core utilities bin

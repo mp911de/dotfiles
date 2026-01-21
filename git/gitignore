@@ -22,4 +22,4 @@ Thumbs.db
 *.gem
 .testrc
 .sdkmanrc
-foo
+gradle-enterprise-workspace-id

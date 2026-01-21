@@ -35,10 +35,12 @@
 
     # Find out who is currently active on the repository
     # Displays committers in descending order of number of commits
-    who = shortlog --numbered --summary --email --no-merges --since="4 weeks"
+    who = shortlog --numbered --summary --email --no-merges --since=4 weeks
     cp = cherry-pick
     co = checkout
-    
+	permission-reset = !git diff -p -R --no-color | grep -E \"^(diff|(old|new) mode)\" --color=never | git apply
+    purr = pull --rebase
+
 [color]
     # color opts: normal, black, red, green, yellow, blue, magenta, cyan, or white
     ui = auto
@@ -46,12 +48,13 @@
 
 [core]
     # Use custom `.gitignore` and `.gitattributes`
-    excludesfile = ~/.gitignore
+	excludesfile = ~/.gitignore
     attributesfile = ~/.gitattributes
+	autocrlf = input
 
     
 [credential]
-    helper = osxkeychain
+	helper = osxkeychain
 
 [diff]
     tool = opendiff
@@ -70,3 +73,29 @@
     # ref: http://linux.die.net/man/1/git-log
     # Result: <short-sha> <commit-message> (<pointer-names>) -- <commit-author-name>; <relative-time>
     nice = "%C(yellow)%h%C(reset) %C(white)%s%C(cyan)%d%C(reset) -- %an; %ar"
+[difftool "sourcetree"]
+	cmd = opendiff \"$LOCAL\" \"$REMOTE\"
+	path = 
+[mergetool "sourcetree"]
+	cmd = /Applications/Sourcetree.app/Contents/Resources/opendiff-w.sh \"$LOCAL\" \"$REMOTE\" -ancestor \"$BASE\" -merge \"$MERGED\"
+	trustExitCode = true
+[user]
+	name = Mark Paluch
+	email = mpaluch@paluch.biz
+	signingkey = E87AC0BFDCB008B6D7034FC7075C49E027E0F12C
+[push]
+	default = simple
+[commit]
+	template = ~/.stCommitMsg
+	gpgsign = true
+[branch]
+	autosetuprebase = always
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
+[pull]
+	rebase = true
+[init]
+	defaultBranch = main

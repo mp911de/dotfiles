@@ -48,20 +48,36 @@ unset load_dotfiles
 # added by Miniconda2 4.7.12 installer
 # >>> conda init >>>
 # !! Contents within this block are managed by 'conda init' !!
-__conda_setup="$(CONDA_REPORT_ERRORS=false '/Users/mpaluch/opt/miniconda2/bin/conda' shell.bash hook 2> /dev/null)"
+__conda_setup="$(CONDA_REPORT_ERRORS=false '${HOME}/opt/miniconda2/bin/conda' shell.bash hook 2> /dev/null)"
 if [ $? -eq 0 ]; then
     \eval "$__conda_setup"
 else
-    if [ -f "/Users/mpaluch/opt/miniconda2/etc/profile.d/conda.sh" ]; then
-        . "/Users/mpaluch/opt/miniconda2/etc/profile.d/conda.sh"
+    if [ -f "${HOME}/opt/miniconda2/etc/profile.d/conda.sh" ]; then
+# . "/Users/mark/opt/miniconda2/etc/profile.d/conda.sh"  # commented out by conda initialize
         CONDA_CHANGEPS1=false conda activate base
     else
-        \export PATH="/Users/mpaluch/opt/miniconda2/bin:$PATH"
+        \export PATH="${HOME}/opt/miniconda2/bin:$PATH"
     fi
 fi
 unset __conda_setup
 # <<< conda init <<<
 
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
-export SDKMAN_DIR="/Users/mpaluch/.sdkman"
-[[ -s "/Users/mpaluch/.sdkman/bin/sdkman-init.sh" ]] && source "/Users/mpaluch/.sdkman/bin/sdkman-init.sh"
+export SDKMAN_DIR="${HOME}/.sdkman"
+[[ -s "${HOME}/.sdkman/bin/sdkman-init.sh" ]] && source "${HOME}/.sdkman/bin/sdkman-init.sh"
+
+# >>> conda initialize >>>
+# !! Contents within this block are managed by 'conda init' !!
+__conda_setup="$('/opt/miniconda3/bin/conda' 'shell.bash' 'hook' 2> /dev/null)"
+if [ $? -eq 0 ]; then
+    eval "$__conda_setup"
+else
+    if [ -f "/opt/miniconda3/etc/profile.d/conda.sh" ]; then
+        . "/opt/miniconda3/etc/profile.d/conda.sh"
+    else
+        export PATH="/opt/miniconda3/bin:$PATH"
+    fi
+fi
+unset __conda_setup
+# <<< conda initialize <<<
+

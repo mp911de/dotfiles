@@ -5,37 +5,43 @@ run_devtools() {
 
     e_header "Checking status of desired Tools..."
     
-    local tools_directory="$DEVTOOLS_HOME"
-    local maven_version="$MAVEN_VERSION"
-    local mongodb_version="$MONGODB_VERSION"
-    local redis_version="$REDIS_VERSION"
+
     pwd=$(pwd)
-    if [[ ! -d "$tools_directory" ]]; then
-        mkdir -p "$tools_directory"
+    if [[ ! -d "$DEVTOOLS_HOME" ]]; then
+        mkdir -p "$DEVTOOLS_HOME"
     fi
 
-    if [[ ! -d "$tools_directory/apache-maven-$maven_version" ]]; then
-        e_header "Installing missing Maven version ${maven_version}..."
-        curl -sSL "https://repo1.maven.org/maven2/org/apache/maven/apache-maven/${maven_version}/apache-maven-${maven_version}-bin.tar.gz" | tar xz -C "${tools_directory}"
-        chmod a+x "$tools_directory/apache-maven-$maven_version/bin/mvn"
-        chmod a+x "$tools_directory/apache-maven-$maven_version/bin/mvnDebug"
+    if [[ ! -d "$maven_directory" ]]; then
+        e_header "Installing missing Maven version ${MAVEN_VERSION}..."
+        curl -sSL "https://repo1.maven.org/maven2/org/apache/maven/apache-maven/${MAVEN_VERSION}/apache-maven-${MAVEN_VERSION}-bin.tar.gz" | tar xz -C "$DEVTOOLS_HOME"
+        chmod a+x "$maven_directory/bin/mvn"
+        chmod a+x "$maven_directory/bin/mvnDebug"
         [[ $? ]] && e_success "Done"
     fi
     
-    if [[ ! -d "$tools_directory/mongodb-osx-x86_64-${mongodb_version}" ]]; then
-        e_header "Installing missing MongoDB version ${mongodb_version}..."
-        curl -sSL "https://fastdl.mongodb.org/osx/mongodb-macos-x86_64-${mongodb_version}.tgz" | tar xz -C "${tools_directory}"
-        cd $tools_directory/mongodb-osx-x86_64-${mongodb_version}/bin/ && chmod a+x "*"
+    if [[ ! -d "$mongodb_directory" ]]; then
+        e_header "Installing missing MongoDB version ${MONGODB_VERSION}..."
+        curl -sSL "https://fastdl.mongodb.org/osx/mongodb-macos-${UNAME_M}-${MONGODB_VERSION}.tgz" | tar xz -C "$DEVTOOLS_HOME"
+        cd $mongodb_directory/bin/ && chmod a+x "*"
+        [[ $? ]] && e_success "Done"
+    fi
+
+    if [[ ! -d "$mongodb_tools_directory" ]]; then
+        e_header "Installing missing MongoDB Tools version ${MONGODB_TOOLS_VERSION}..."
+        curl -sSL "https://downloads.mongodb.com/compass/mongosh-${MONGODB_TOOLS_VERSION}-${UNAME_O}-${UNAME_M}.zip" -o archive.zip
+		unzip archive.zip -d "$DEVTOOLS_HOME"
+		rm archive.zip
+        cd $mongodb_tools_directory/bin/ && chmod a+x "mongosh"
         [[ $? ]] && e_success "Done"
     fi
     
-#    if [[ ! -d "$tools_directory/redis" ]]; then
-#        e_header "Installing missing Redis version ${redis_version}..."            
-#        cd $tools_directory && git clone https://github.com/antirez/redis.git
-#        cd redis && git checkout ${redis_version}
-#        cd src
-#        make
-#        [[ $? ]] && e_success "Done"
-#    fi
+    if [[ ! -d "$redis_directory" ]]; then
+        e_header "Installing missing Redis version ${redis_version}..."            
+        cd $DEVTOOLS_HOME && git clone https://github.com/antirez/redis.git
+        cd redis && git checkout ${redis_version}
+        cd src
+        make
+        [[ $? ]] && e_success "Done"
+    fi
     cd $pwd
 }

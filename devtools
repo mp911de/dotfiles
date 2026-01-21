@@ -1,5 +1,18 @@
+# arm64
+UNAME_M=$(uname -m)
+# aarch64
+UNAME_A=$(uname -m | sed s/arm64/aarch64/g)
+# darwin
+UNAME_O=$(uname -o | tr '[:upper:]' '[:lower:]')
+
 DEVTOOLS_HOME=/Users/Shared/Entwicklung/tools
-MAVEN_VERSION=3.9.6
-MONGODB_VERSION=4.1.10
-REDIS_VERSION=4.0.8
+MAVEN_VERSION=3.9.11
+MONGODB_VERSION=8.2.2
+MONGODB_TOOLS_VERSION=2.5.10
+REDIS_VERSION=7.2.1
 BREW_COREUTILS_DIR=/usr/local/opt/coreutils
+
+maven_directory="$DEVTOOLS_HOME/apache-maven-$MAVEN_VERSION"
+mongodb_directory="$DEVTOOLS_HOME/mongodb-macos-${UNAME_A}--${MONGODB_VERSION}"
+mongodb_tools_directory="$DEVTOOLS_HOME/mongosh-${MONGODB_TOOLS_VERSION}-${UNAME_O}-${UNAME_M}"
+redis_directory="$DEVTOOLS_HOME/redis"
