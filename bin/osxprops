@@ -154,9 +154,6 @@ defaults write com.apple.terminal StringEncodings -array 4
 defaults write com.apple.terminal FocusFollowsMouse -bool false
 defaults write org.x.X11 wm_ffm -bool false
 
-# Use versioned iterm2 preferences
-defaults write com.googlecode.iterm2 PrefsCustomFolder -string "${DOTFILES_DIRECTORY}/osx"
-
 ###############################################################################
 # Kill affected applications                                                  #
 ###############################################################################

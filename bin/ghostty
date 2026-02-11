@@ -1,0 +1,4 @@
+DOTFILES=$HOME/.dotfiles
+
+mkdir -p $HOME/.config
+ln -s $DOTFILES/ghostty $HOME/.config/ghostty
