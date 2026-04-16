@@ -23,3 +23,11 @@ Thumbs.db
 .testrc
 .sdkmanrc
 gradle-enterprise-workspace-id
+.cursor/
+AGENTS.md
+agents.md
+claude.md
+CLAUDE.md
+.claude/
+SPEC.md
+specs/
