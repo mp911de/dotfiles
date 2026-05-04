@@ -1,0 +1,403 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_NAME="$(basename "$0")"
+STATE_NAMESPACE="cross-port-state"
+
+# shellcheck source=/Users/mark/.dotfiles/bin/git-port-common.sh
+source "$SCRIPT_DIR/git-port-common.sh"
+
+print_help() {
+  cat <<EOF
+Usage: $SCRIPT_NAME [-p <source-repo>] [-t <new-ticket>] <source-ref> <target-branch> [target-branch ...]
+       $SCRIPT_NAME --continue
+
+Cherry-pick one commit onto multiple target branches, optionally fetching the
+source commit from another repository and rewriting ticket references in the
+resulting commit messages.
+
+Options:
+  -p, --path       Path to the source repository. If omitted, source is
+                   resolved in the current repository.
+  -t, --ticket     Replace ticket references like #123, gh-123, or GH-123 in
+                   the last commit message after each cherry-pick.
+  --continue       Continue after resolving cherry-pick conflicts.
+  -h, --help       Show this help message
+
+Arguments:
+  <source-ref>      Branch, tag, or commit that resolves to the source commit.
+  <target-branch>   Cherry-pick the source commit onto this branch.
+  [target-branch ...]
+                    Additional branches to update in the order provided.
+EOF
+}
+
+state_dir() {
+  git rev-parse --git-path "$STATE_NAMESPACE"
+}
+
+state_file() {
+  printf '%s/state.env\n' "$(state_dir)"
+}
+
+remaining_file() {
+  printf '%s/remaining\n' "$(state_dir)"
+}
+
+targets_file() {
+  printf '%s/targets\n' "$(state_dir)"
+}
+
+ensure_state_dir() {
+  mkdir -p "$(state_dir)"
+}
+
+write_lines_to_file() {
+  local file="$1"
+  shift
+
+  : > "$file"
+
+  while [[ $# -gt 0 ]]; do
+    printf '%s\n' "$1" >> "$file"
+    shift
+  done
+}
+
+remove_first_remaining_branch() {
+  local tmp
+
+  tmp="$(mktemp)"
+  if [[ -f "$(remaining_file)" ]]; then
+    tail -n +2 "$(remaining_file)" > "$tmp"
+  fi
+  mv "$tmp" "$(remaining_file)"
+}
+
+load_remaining_branches() {
+  REMAINING_BRANCHES=()
+
+  if [[ -f "$(remaining_file)" ]]; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      REMAINING_BRANCHES+=("$line")
+    done < "$(remaining_file)"
+  fi
+}
+
+load_target_branches() {
+  TARGET_BRANCHES_FOR_PUSH=()
+
+  if [[ -f "$(targets_file)" ]]; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      TARGET_BRANCHES_FOR_PUSH+=("$line")
+    done < "$(targets_file)"
+  fi
+}
+
+write_state() {
+  local internal_hash="$1"
+  local new_ticket="$2"
+  local current_branch="$3"
+  local source_ref_display="$4"
+  local source_repo_display="$5"
+  shift 5
+
+  ensure_state_dir
+
+  {
+    printf 'INTERNAL_HASH=%q\n' "$internal_hash"
+    printf 'NEW_TICKET=%q\n' "$new_ticket"
+    printf 'CURRENT_BRANCH=%q\n' "$current_branch"
+    printf 'SOURCE_REF_DISPLAY=%q\n' "$source_ref_display"
+    printf 'SOURCE_REPO_DISPLAY=%q\n' "$source_repo_display"
+  } > "$(state_file)"
+
+  write_lines_to_file "$(remaining_file)" "$@"
+}
+
+write_targets() {
+  ensure_state_dir
+  write_lines_to_file "$(targets_file)" "$@"
+}
+
+read_state() {
+  [[ -f "$(state_file)" ]] || die "No saved state found. Nothing to continue."
+  [[ -f "$(remaining_file)" ]] || die "State is incomplete: missing remaining branch list."
+
+  # shellcheck disable=SC1090
+  source "$(state_file)"
+
+  [[ -n "${INTERNAL_HASH:-}" ]] || die "State is invalid: INTERNAL_HASH missing."
+  [[ -n "${CURRENT_BRANCH:-}" ]] || die "State is invalid: CURRENT_BRANCH missing."
+}
+
+clear_state() {
+  rm -rf "$(state_dir)"
+}
+
+replace_ticket_in_last_commit() {
+  local new_ticket="$1"
+  local msg
+  local updated
+  local tmp
+
+  [[ -n "$new_ticket" ]] || return 0
+
+  new_ticket="${new_ticket#\#}"
+  msg="$(git log -1 --pretty=%B)"
+
+  updated="$(
+    printf '%s\n' "$msg" |
+      sed -E \
+        -e "s/(^|[^[:alnum:]_])#[0-9]+/\\1#${new_ticket}/g" \
+        -e "s/(^|[^[:alnum:]_])gh-[0-9]+/\\1gh-${new_ticket}/g" \
+        -e "s/(^|[^[:alnum:]_])GH-[0-9]+/\\1GH-${new_ticket}/g"
+  )"
+
+  if [[ "$updated" == "$msg" ]]; then
+    log_warn "No replaceable ticket reference found in the last commit message."
+    return 0
+  fi
+
+  tmp="$(mktemp)"
+  printf '%s\n' "$updated" > "$tmp"
+  git commit --amend -F "$tmp" >/dev/null
+  rm -f "$tmp"
+}
+
+resolve_source_ref() {
+  local source_ref="$1"
+  local source_path="${2:-}"
+  local resolved_source_path
+
+  RESOLVED_SOURCE_COMMIT=""
+
+  if [[ -n "$source_path" ]]; then
+    resolved_source_path="$(resolve_directory "$source_path")" || die "Source path does not exist: $source_path"
+    git -C "$resolved_source_path" rev-parse --git-dir >/dev/null 2>&1 || die "Source path is not a Git repository: $resolved_source_path"
+
+    git fetch --no-tags "$resolved_source_path" "$source_ref" >/dev/null || die "Could not fetch '$source_ref' from '$resolved_source_path'."
+    RESOLVED_SOURCE_COMMIT="$(git rev-parse --verify FETCH_HEAD^{commit})"
+    return 0
+  fi
+
+  git rev-parse --verify "${source_ref}^{commit}" >/dev/null 2>&1 || die "Could not resolve '$source_ref' as a branch or commit."
+  RESOLVED_SOURCE_COMMIT="$(git rev-parse --verify "${source_ref}^{commit}")"
+}
+
+parse_args() {
+  SRC_PATH=""
+  NEW_TICKET=""
+  CONTINUE_MODE="false"
+  POSITIONAL=()
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --continue)
+        CONTINUE_MODE="true"
+        shift
+        ;;
+      -p|--path)
+        [[ $# -ge 2 ]] || die "Missing value for $1."
+        SRC_PATH="$2"
+        shift 2
+        ;;
+      --path=*)
+        SRC_PATH="${1#*=}"
+        shift
+        ;;
+      -t|--ticket)
+        [[ $# -ge 2 ]] || die "Missing value for $1."
+        NEW_TICKET="$2"
+        shift 2
+        ;;
+      --ticket=*)
+        NEW_TICKET="${1#*=}"
+        shift
+        ;;
+      -h|--help)
+        print_help
+        exit 0
+        ;;
+      --)
+        shift
+        while [[ $# -gt 0 ]]; do
+          POSITIONAL+=("$1")
+          shift
+        done
+        ;;
+      -*)
+        die "Unknown option: $1"
+        ;;
+      *)
+        POSITIONAL+=("$1")
+        shift
+        ;;
+    esac
+  done
+}
+
+print_push_hint() {
+  local branch
+
+  load_target_branches
+  [[ ${#TARGET_BRANCHES_FOR_PUSH[@]} -gt 0 ]] || return 0
+
+  printf '  %spush:%s  git push origin' "$GREY" "$RESET"
+  for branch in "${TARGET_BRANCHES_FOR_PUSH[@]}"; do
+    printf ' %s' "$(format_branch "$branch")"
+  done
+  printf '\n'
+}
+
+show_banner() {
+  local target_repo="$1"
+  local source_repo="$2"
+  local source_ref_display="$3"
+  local source_commit="$4"
+
+  local title="${GREY}>_${RESET} ${BOLD_WHITE}git${RESET} ${PURPLE}›${RESET} ${BOLD_WHITE}multiport${RESET}"
+  local source_val
+
+  if [[ -n "$source_ref_display" ]]; then
+    source_val="${source_ref_display}  ${GREY}→${RESET}  ${GREEN}${source_commit:0:8}${RESET}"
+  else
+    source_val="${GREEN}${source_commit:0:8}${RESET}"
+  fi
+
+  if [[ -n "$source_repo" ]]; then
+    print_header "$title" \
+      "source repo:" "$source_repo" \
+      "source:" "$source_val" \
+      "target:" "$target_repo"
+  else
+    print_header "$title" \
+      "source:" "$source_val" \
+      "target:" "$target_repo"
+  fi
+}
+
+continue_flow() {
+  local actual_branch
+
+  read_state
+  load_remaining_branches
+  init_item_widths "${REMAINING_BRANCHES[@]}"
+  show_banner "$(git rev-parse --show-toplevel)" "${SOURCE_REPO_DISPLAY:-}" "${SOURCE_REF_DISPLAY:-}" "$INTERNAL_HASH"
+  log_info "Resuming cherry-pick on $(format_branch "$CURRENT_BRANCH")."
+
+  actual_branch="$(git_current_branch)"
+  [[ "$actual_branch" == "$CURRENT_BRANCH" ]] || die "State expects $(format_branch "$CURRENT_BRANCH"), but you are on $(format_branch "$actual_branch")."
+  has_unresolved_conflicts && die "Conflicts still exist. Resolve them, run 'git add <files>', then run '$SCRIPT_NAME --continue'."
+  git rev-parse -q --verify CHERRY_PICK_HEAD >/dev/null 2>&1 || die "No cherry-pick appears to be in progress."
+
+  git cherry-pick --continue
+  replace_ticket_in_last_commit "${NEW_TICKET:-}"
+  remove_first_remaining_branch
+  _OK=$((_OK+1)); _TOT=$((_TOT+1))
+  print_item "$CURRENT_BRANCH" "resumed" "$GREEN" "✓" "$GREEN"
+}
+
+process_branches() {
+  local internal_hash="$1"
+  local new_ticket="$2"
+  local source_ref_display="$3"
+  local source_repo_display="$4"
+  shift 4
+
+  local branches=("$@")
+  local idx
+  local branch
+
+  for idx in "${!branches[@]}"; do
+    branch="${branches[$idx]}"
+
+    ensure_clean_worktree
+
+    if ! git switch "$branch" >/dev/null 2>&1; then
+      die "Could not switch to target branch $(format_branch "$branch")."
+    fi
+
+    write_state "$internal_hash" "$new_ticket" "$branch" "$source_ref_display" "$source_repo_display" "${branches[@]:$idx}"
+
+    _TOT=$((_TOT+1))
+
+    if ! git cherry-pick "$internal_hash"; then
+      if git rev-parse -q --verify CHERRY_PICK_HEAD >/dev/null 2>&1; then
+        _ERR=$((_ERR+1))
+        print_item "$branch" "conflict" "$RED" "✗" "$RED" \
+          "Resolve conflicts, run 'git add <files>', then '$SCRIPT_NAME --continue'."
+      else
+        _ERR=$((_ERR+1))
+        print_item "$branch" "failed" "$RED" "✗" "$RED" "Cherry-pick failed."
+        clear_state
+      fi
+      exit 1
+    fi
+
+    replace_ticket_in_last_commit "$new_ticket"
+    remove_first_remaining_branch
+    _OK=$((_OK+1))
+    print_item "$branch" "applied" "$GREEN" "✓" "$GREEN"
+  done
+}
+
+finish_success() {
+  load_target_branches
+  print_summary "$_OK" "$_TOT" 0
+  print_push_hint
+  clear_state
+}
+
+main() {
+  local source_repo_display=""
+  local source_ref
+  local source_commit
+  local target_repo
+  local target_branches=()
+  _TOT=0
+  _OK=0
+  _ERR=0
+
+  require_git_repo
+  parse_args "$@"
+
+  if [[ "$CONTINUE_MODE" == "true" ]]; then
+    [[ ${#POSITIONAL[@]} -eq 0 && -z "$SRC_PATH" && -z "$NEW_TICKET" ]] || die "--continue cannot be combined with source, target branches, -p, or -t."
+    continue_flow
+
+    if [[ ${#REMAINING_BRANCHES[@]} -gt 0 ]]; then
+      process_branches "$INTERNAL_HASH" "${NEW_TICKET:-}" "${SOURCE_REF_DISPLAY:-}" "${SOURCE_REPO_DISPLAY:-}" "${REMAINING_BRANCHES[@]}"
+    fi
+
+    finish_success
+    return
+  fi
+
+  if [[ ${#POSITIONAL[@]} -lt 2 ]]; then
+    print_help
+    exit 1
+  fi
+
+  ensure_clean_worktree
+  clear_state
+
+  source_ref="${POSITIONAL[0]}"
+  target_branches=("${POSITIONAL[@]:1}")
+  target_repo="$(git rev-parse --show-toplevel)"
+
+  write_targets "${target_branches[@]}"
+  resolve_source_ref "$source_ref" "$SRC_PATH"
+  source_commit="$RESOLVED_SOURCE_COMMIT"
+  if [[ -n "$SRC_PATH" ]]; then
+    source_repo_display="$(resolve_directory "$SRC_PATH")" || die "Source path does not exist: $SRC_PATH"
+  fi
+
+  init_item_widths "${target_branches[@]}"
+  show_banner "$target_repo" "$source_repo_display" "$source_ref" "$source_commit"
+  process_branches "$source_commit" "$NEW_TICKET" "$source_ref" "$source_repo_display" "${target_branches[@]}"
+  finish_success
+}
+
+main "$@"

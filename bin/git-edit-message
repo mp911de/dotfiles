@@ -1,0 +1,244 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_NAME="$(basename "$0")"
+
+# shellcheck source=/Users/mark/.dotfiles/bin/git-port-common.sh
+source "$SCRIPT_DIR/git-port-common.sh"
+
+TEMP_FILES=()
+UPDATED_BRANCHES=()
+
+print_help() {
+  cat <<EOF
+Usage: $SCRIPT_NAME <branch> [branch ...]
+
+Edit the HEAD commit message across multiple local branches. The script opens the
+Git-configured editor with the full HEAD commit message from the first branch,
+then amends the HEAD commit on each listed branch with the edited message.
+
+Before opening the editor, the script verifies that the first line of each HEAD
+commit message matches across the provided branches. If the check fails, the
+script prints each branch and its subject line, then aborts without changing
+anything.
+
+Options:
+  -h, --help        Show this help message
+
+Arguments:
+  <branch>          Local branch whose HEAD commit message should be updated.
+  [branch ...]      Additional local branches to rewrite in the order provided.
+EOF
+}
+
+track_temp_file() {
+  TEMP_FILES+=("$1")
+}
+
+cleanup_temp_files() {
+  local file
+
+  for file in "${TEMP_FILES[@]:-}"; do
+    [[ -n "$file" ]] || continue
+    rm -f "$file"
+  done
+}
+
+branch_exists() {
+  local branch="$1"
+
+  git show-ref --verify --quiet "refs/heads/$branch"
+}
+
+head_subject() {
+  git log -1 --pretty=%s "$1"
+}
+
+head_message() {
+  git log -1 --pretty=%B "$1"
+}
+
+parse_args() {
+  POSITIONAL=()
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -h|--help)
+        print_help
+        exit 0
+        ;;
+      --)
+        shift
+        while [[ $# -gt 0 ]]; do
+          POSITIONAL+=("$1")
+          shift
+        done
+        ;;
+      -*)
+        die "Unknown option: $1"
+        ;;
+      *)
+        POSITIONAL+=("$1")
+        shift
+        ;;
+    esac
+  done
+}
+
+validate_local_branches() {
+  local branch
+
+  for branch in "$@"; do
+    branch_exists "$branch" || die "Local branch does not exist: $branch"
+  done
+}
+
+verify_matching_subjects() {
+  local expected_branch="$1"
+  local expected_subject
+  local branch
+  local subject
+  local mismatch="false"
+
+  expected_subject="$(head_subject "$expected_branch")"
+
+  for branch in "$@"; do
+    subject="$(head_subject "$branch")"
+    if [[ "$subject" != "$expected_subject" ]]; then
+      mismatch="true"
+      break
+    fi
+  done
+
+  if [[ "$mismatch" == "false" ]]; then
+    MATCHING_SUBJECT="$expected_subject"
+    return 0
+  fi
+
+  log_error "HEAD commit subjects do not match across the provided branches. Aborting."
+  for branch in "$@"; do
+    printf '  %s✗%s %s -> %s\n' "$RED" "$RESET" "$branch" "$(head_subject "$branch")"
+  done
+  exit 1
+}
+
+run_git_editor() {
+  local file="$1"
+  local editor_cmd
+
+  editor_cmd="$(git var GIT_EDITOR)" || die "Could not determine the Git editor."
+  [[ -n "$editor_cmd" ]] || die "Git did not return an editor command."
+
+  EDIT_TARGET="$file" EDITOR_CMD="$editor_cmd" \
+    sh -c 'eval "$EDITOR_CMD \"\$EDIT_TARGET\""' || die "Editor exited with a non-zero status."
+}
+
+normalize_message_file() {
+  local input_file="$1"
+  local output_file="$2"
+
+  git stripspace < "$input_file" > "$output_file"
+  [[ -s "$output_file" ]] || die "Commit message cannot be empty."
+}
+
+show_banner() {
+  local target_repo="$1"
+
+  local title="${GREY}>_${RESET} ${BOLD_WHITE}git${RESET} ${PURPLE}›${RESET} ${BOLD_WHITE}edit-message${RESET}"
+
+  print_header "$title" \
+    "repo:" "$target_repo" \
+    "subject:" "$MATCHING_SUBJECT"
+}
+
+amend_branch_message() {
+  local branch="$1"
+  local message_file="$2"
+  local rewritten_commit
+
+  ensure_clean_worktree
+
+  if ! git switch "$branch" >/dev/null 2>&1; then
+    die "Could not switch to branch $(format_branch "$branch")."
+  fi
+
+  if ! git commit --amend -F "$message_file" >/dev/null; then
+    die "Could not amend the HEAD commit message on $(format_branch "$branch")."
+  fi
+
+  rewritten_commit="$(git rev-parse --verify HEAD)"
+  UPDATED_BRANCHES+=("$branch")
+  print_item "$branch" "amended" "$GREEN" "✓" "$GREEN"
+}
+
+print_push_hint() {
+  local branch
+
+  [[ ${#UPDATED_BRANCHES[@]} -gt 0 ]] || return 0
+
+  printf '  %spush:%s  git push origin' "$GREY" "$RESET"
+  for branch in "${UPDATED_BRANCHES[@]}"; do
+    printf ' %s' "$(format_branch "$branch")"
+  done
+  printf '\n'
+}
+
+main() {
+  local branches=()
+  local target_repo
+  local edit_file
+  local original_file
+  local final_file
+  local first_branch
+  local branch
+
+  trap cleanup_temp_files EXIT
+
+  require_git_repo
+  parse_args "$@"
+
+  if [[ ${#POSITIONAL[@]} -lt 1 ]]; then
+    print_help
+    exit 1
+  fi
+
+  branches=("${POSITIONAL[@]}")
+  first_branch="${branches[0]}"
+
+  ensure_clean_worktree
+  validate_local_branches "${branches[@]}"
+  verify_matching_subjects "${branches[@]}"
+
+  target_repo="$(git rev-parse --show-toplevel)"
+
+  init_item_widths "${branches[@]}"
+  show_banner "$target_repo"
+
+  original_file="$(mktemp)"
+  track_temp_file "$original_file"
+  edit_file="$(mktemp)"
+  track_temp_file "$edit_file"
+  final_file="$(mktemp)"
+  track_temp_file "$final_file"
+
+  head_message "$first_branch" > "$edit_file"
+  normalize_message_file "$edit_file" "$original_file"
+
+  run_git_editor "$edit_file"
+  normalize_message_file "$edit_file" "$final_file"
+
+  if cmp -s "$original_file" "$final_file"; then
+    log_info "Commit message unchanged. No branches were updated."
+    exit 0
+  fi
+
+  for branch in "${branches[@]}"; do
+    amend_branch_message "$branch" "$final_file"
+  done
+
+  print_summary "${#UPDATED_BRANCHES[@]}" "${#branches[@]}" 0
+  print_push_hint
+}
+
+main "$@"

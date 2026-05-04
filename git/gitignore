@@ -25,8 +25,6 @@ Thumbs.db
 gradle-enterprise-workspace-id
 .cursor/
 AGENTS.md
-agents.md
-claude.md
 CLAUDE.md
 CONTEXT.md
 .agents
@@ -36,3 +34,8 @@ SPEC.md
 specs/
 .arch-loop/
 .spec-loop/
+specs/
+.aiassistant
+.mvn/.develocity/
+*.iml
+

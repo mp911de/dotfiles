@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_NAME="$(basename "$0")"
+
+# shellcheck source=/Users/mark/.dotfiles/bin/git-port-common.sh
+source "$SCRIPT_DIR/git-port-common.sh"
+
+usage() {
+  cat <<EOF
+Usage:
+  $SCRIPT_NAME [demo-root]
+
+Description:
+  Recreate a demo repository with multiple branches for testing
+  git-edit-message. If demo-root is omitted, the script uses:
+    ${TMPDIR%/}/git-edit-message-bootstrap
+EOF
+}
+
+assert_safe_root() {
+  local root_dir="$1"
+
+  [[ -n "$root_dir" ]] || die "Demo root path cannot be empty."
+  [[ "$root_dir" != "/" ]] || die "Refusing to remove '/'."
+  [[ "$root_dir" != "$HOME" ]] || die "Refusing to remove '$HOME'."
+}
+
+init_repo() {
+  local repo_dir="$1"
+
+  git init -b main "$repo_dir" >/dev/null
+  git -C "$repo_dir" config user.name "Bootstrap User"
+  git -C "$repo_dir" config user.email "bootstrap@example.com"
+  git -C "$repo_dir" config commit.gpgsign false
+}
+
+create_branch_commit() {
+  local repo_dir="$1"
+  local branch="$2"
+  local subject="$3"
+  local body="$4"
+
+  git -C "$repo_dir" switch -c "$branch" main >/dev/null
+  printf 'base\n%s\n' "$branch" > "$repo_dir/app.txt"
+  git -C "$repo_dir" add app.txt
+  git -C "$repo_dir" commit -m "$subject" -m "$body" >/dev/null
+}
+
+create_demo_repo() {
+  log_info "Creating the demo repository in '$REPO_DIR'."
+  init_repo "$REPO_DIR"
+
+  printf 'base\n' > "$REPO_DIR/app.txt"
+  git -C "$REPO_DIR" add app.txt
+  git -C "$REPO_DIR" commit -m "Initial base" >/dev/null
+
+  create_branch_commit "$REPO_DIR" "release-1" "Port demo change #123" "Shared body for the edit-message demo."
+  create_branch_commit "$REPO_DIR" "release-2" "Port demo change #123" "Shared body for the edit-message demo."
+  create_branch_commit "$REPO_DIR" "release-3" "Port demo change #123" "Shared body for the edit-message demo."
+  create_branch_commit "$REPO_DIR" "release-mismatch" "Port demo change #999" "Mismatched subject for guard testing."
+
+  git -C "$REPO_DIR" switch main >/dev/null
+  log_step_ok "Demo repository is ready."
+}
+
+verify_demo_repo() {
+  local subject1
+  local subject2
+  local subject3
+  local mismatch_subject
+
+  subject1="$(git -C "$REPO_DIR" log -1 --pretty=%s release-1)"
+  subject2="$(git -C "$REPO_DIR" log -1 --pretty=%s release-2)"
+  subject3="$(git -C "$REPO_DIR" log -1 --pretty=%s release-3)"
+  mismatch_subject="$(git -C "$REPO_DIR" log -1 --pretty=%s release-mismatch)"
+
+  [[ "$subject1" == "$subject2" ]] || die "release-1 and release-2 should have matching subjects."
+  [[ "$subject1" == "$subject3" ]] || die "release-1 and release-3 should have matching subjects."
+  [[ "$subject1" != "$mismatch_subject" ]] || die "release-mismatch should have a different subject."
+
+  log_step_ok "Fixture verification passed."
+}
+
+show_final_summary() {
+  log_info "Demo repository history:"
+  git -C "$REPO_DIR" log --oneline --decorate --graph --all
+  echo
+  log_info "Happy-path example:"
+  printf '  cd %s && %s release-1 release-2 release-3\n' "$REPO_DIR" "$SCRIPT_DIR/git-edit-message"
+  log_info "Guard-failure example:"
+  printf '  cd %s && %s release-1 release-2 release-mismatch\n' "$REPO_DIR" "$SCRIPT_DIR/git-edit-message"
+}
+
+main() {
+  local requested_root="${1:-${TMPDIR%/}/git-edit-message-bootstrap}"
+
+  if [[ "${requested_root:-}" == "-h" || "${requested_root:-}" == "--help" ]]; then
+    usage
+    exit 0
+  fi
+
+  ROOT_DIR="$(resolve_path_from_parent "$requested_root")" || die "Could not resolve demo root path: $requested_root"
+  REPO_DIR="$ROOT_DIR/demo-repo"
+
+  assert_safe_root "$ROOT_DIR"
+
+  log_info "Recreating demo repository under '$ROOT_DIR'."
+  rm -rf "$ROOT_DIR"
+  mkdir -p "$ROOT_DIR"
+
+  create_demo_repo
+  verify_demo_repo
+  show_final_summary
+
+  log_done "Bootstrap completed. Demo repo lives in '$REPO_DIR'."
+}
+
+main "$@"

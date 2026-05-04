@@ -1,0 +1,152 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_NAME="$(basename "$0")"
+
+# shellcheck source=/Users/mark/.dotfiles/bin/git-port-common.sh
+source "$SCRIPT_DIR/git-port-common.sh"
+
+usage() {
+  cat <<EOF
+Usage:
+  $SCRIPT_NAME [demo-root]
+
+Description:
+  Recreate two demo repositories, run git-multiport, then run git-copy-fix.
+  If demo-root is omitted, the script uses:
+    ${TMPDIR%/}/git-port-bootstrap
+EOF
+}
+
+assert_safe_root() {
+  local root_dir="$1"
+
+  [[ -n "$root_dir" ]] || die "Demo root path cannot be empty."
+  [[ "$root_dir" != "/" ]] || die "Refusing to remove '/'."
+  [[ "$root_dir" != "$HOME" ]] || die "Refusing to remove '$HOME'."
+}
+
+init_repo() {
+  local repo_dir="$1"
+
+  git init -b main "$repo_dir" >/dev/null
+  git -C "$repo_dir" config user.name "Bootstrap User"
+  git -C "$repo_dir" config user.email "bootstrap@example.com"
+  git -C "$repo_dir" config commit.gpgsign false
+}
+
+create_source_repo() {
+  log_info "Creating the source repository in '$SOURCE_REPO'."
+  init_repo "$SOURCE_REPO"
+
+  printf 'base\n' > "$SOURCE_REPO/app.txt"
+  git -C "$SOURCE_REPO" add app.txt
+  git -C "$SOURCE_REPO" commit -m "Initial base" >/dev/null
+
+  printf 'base\nfeature from source\n' > "$SOURCE_REPO/app.txt"
+  git -C "$SOURCE_REPO" add app.txt
+  git -C "$SOURCE_REPO" commit -m "Port demo change #123" >/dev/null
+  log_step_ok "Source repository is ready."
+}
+
+create_target_repo() {
+  log_info "Creating the target repository in '$TARGET_REPO'."
+  init_repo "$TARGET_REPO"
+
+  printf 'base\n' > "$TARGET_REPO/app.txt"
+  git -C "$TARGET_REPO" add app.txt
+  git -C "$TARGET_REPO" commit -m "Initial base" >/dev/null
+  git -C "$TARGET_REPO" branch release-1
+  git -C "$TARGET_REPO" branch release-2
+  log_step_ok "Target repository is ready."
+}
+
+run_multiport_demo() {
+  log_info "Running git-multiport."
+  (
+    cd "$TARGET_REPO"
+    "$SCRIPT_DIR/git-multiport" -p "$SOURCE_REPO" main release-1 release-2
+  )
+
+  ORIGINAL_PORTED_CONTENT="$(git -C "$TARGET_REPO" show release-2:app.txt)"
+  [[ "$ORIGINAL_PORTED_CONTENT" == *"feature from source"* ]] || die "git-multiport did not apply the source change to release-2."
+  log_step_ok "git-multiport updated release-1 and release-2."
+}
+
+create_fixed_commit() {
+  log_info "Creating a fixed replacement commit on 'release-1'."
+  git -C "$TARGET_REPO" switch release-1 >/dev/null
+  git -C "$TARGET_REPO" reset --hard HEAD~1 >/dev/null
+
+  printf 'base\nfeature from source (fixed)\n' > "$TARGET_REPO/app.txt"
+  git -C "$TARGET_REPO" add app.txt
+  git -C "$TARGET_REPO" commit -m "Port demo change #123" >/dev/null
+  log_step_ok "release-1 now contains the fixed commit."
+}
+
+run_copy_fix_demo() {
+  log_info "Running git-copy-fix."
+  (
+    cd "$TARGET_REPO"
+    "$SCRIPT_DIR/git-copy-fix" HEAD release-2 main
+  )
+  log_step_ok "git-copy-fix ran against release-2 and main."
+}
+
+verify_demo() {
+  local release1_content
+  local release2_content
+  local main_content
+  local release2_subject
+
+  release1_content="$(git -C "$TARGET_REPO" show release-1:app.txt)"
+  release2_content="$(git -C "$TARGET_REPO" show release-2:app.txt)"
+  main_content="$(git -C "$TARGET_REPO" show main:app.txt)"
+  release2_subject="$(git -C "$TARGET_REPO" log -1 --pretty=%s release-2)"
+
+  [[ "$release1_content" == "$release2_content" ]] || die "release-1 and release-2 diverged after git-copy-fix."
+  [[ "$release2_content" == *"feature from source (fixed)"* ]] || die "release-2 does not contain the fixed change."
+  [[ "$release2_content" != "$ORIGINAL_PORTED_CONTENT" ]] || die "release-2 still has the original cherry-picked content."
+  [[ "$main_content" == "base" ]] || die "main should remain untouched by git-copy-fix."
+  [[ "$release2_subject" == "Port demo change #123" ]] || die "release-2 commit subject changed unexpectedly."
+
+  log_step_ok "Verification passed."
+}
+
+show_final_summary() {
+  log_info "Final target repository history:"
+  git -C "$TARGET_REPO" log --oneline --decorate --graph --all
+}
+
+main() {
+  local requested_root="${1:-${TMPDIR%/}/git-port-bootstrap}"
+
+  if [[ "${requested_root:-}" == "-h" || "${requested_root:-}" == "--help" ]]; then
+    usage
+    exit 0
+  fi
+
+  ROOT_DIR="$(resolve_path_from_parent "$requested_root")" || die "Could not resolve demo root path: $requested_root"
+  SOURCE_REPO="$ROOT_DIR/source-repo"
+  TARGET_REPO="$ROOT_DIR/target-repo"
+  ORIGINAL_PORTED_CONTENT=""
+
+  assert_safe_root "$ROOT_DIR"
+
+  log_info "Recreating demo repositories under '$ROOT_DIR'."
+  rm -rf "$ROOT_DIR"
+  mkdir -p "$ROOT_DIR"
+
+  create_source_repo
+  create_target_repo
+  run_multiport_demo
+  create_fixed_commit
+  run_copy_fix_demo
+  verify_demo
+  show_final_summary
+
+  log_done "Bootstrap completed. Demo repos live in '$ROOT_DIR'."
+}
+
+main "$@"
