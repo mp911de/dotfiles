@@ -83,18 +83,56 @@ verify_demo_repo() {
   log_step_ok "Fixture verification passed."
 }
 
+run_edit_message_demo() {
+  local editor_script
+  editor_script="$(mktemp)"
+  cat > "$editor_script" << 'EOF'
+#!/usr/bin/env bash
+perl -pi -e 's/#123/#456/g' "$1"
+EOF
+  chmod +x "$editor_script"
+
+  log_info "Running git-edit-message (happy path)."
+  (
+    cd "$REPO_DIR"
+    GIT_EDITOR="$editor_script" "$SCRIPT_DIR/git-edit-message" release-1 release-2 release-3
+  )
+
+  rm -f "$editor_script"
+  log_step_ok "git-edit-message amended release-1, release-2, and release-3."
+}
+
+run_guard_demo() {
+  log_info "Running git-edit-message (guard: mismatched subjects)."
+  (
+    cd "$REPO_DIR"
+    "$SCRIPT_DIR/git-edit-message" release-1 release-mismatch
+  ) || true
+  log_step_ok "git-edit-message correctly rejected mismatched subjects."
+}
+
+verify_edits() {
+  local subject1 subject2 subject3
+
+  subject1="$(git -C "$REPO_DIR" log -1 --pretty=%s release-1)"
+  subject2="$(git -C "$REPO_DIR" log -1 --pretty=%s release-2)"
+  subject3="$(git -C "$REPO_DIR" log -1 --pretty=%s release-3)"
+
+  [[ "$subject1" == "$subject2" ]] || die "release-1 and release-2 subjects should match after edit."
+  [[ "$subject1" == "$subject3" ]] || die "release-1 and release-3 subjects should match after edit."
+  [[ "$subject1" == *"#456"* ]] || die "Subjects should contain the updated ticket reference."
+
+  log_step_ok "Edit verification passed."
+}
+
 show_final_summary() {
-  log_info "Demo repository history:"
+  log_info "Final repository history:"
   git -C "$REPO_DIR" log --oneline --decorate --graph --all
-  echo
-  log_info "Happy-path example:"
-  printf '  cd %s && %s release-1 release-2 release-3\n' "$REPO_DIR" "$SCRIPT_DIR/git-edit-message"
-  log_info "Guard-failure example:"
-  printf '  cd %s && %s release-1 release-2 release-mismatch\n' "$REPO_DIR" "$SCRIPT_DIR/git-edit-message"
 }
 
 main() {
   local requested_root="${1:-${TMPDIR%/}/git-edit-message-bootstrap}"
+
 
   if [[ "${requested_root:-}" == "-h" || "${requested_root:-}" == "--help" ]]; then
     usage
@@ -112,6 +150,9 @@ main() {
 
   create_demo_repo
   verify_demo_repo
+  run_edit_message_demo
+  verify_edits
+  run_guard_demo
   show_final_summary
 
   log_done "Bootstrap completed. Demo repo lives in '$REPO_DIR'."

@@ -118,7 +118,7 @@ verify_matching_subjects() {
 
   log_error "HEAD commit subjects do not match across the provided branches. Aborting."
   for branch in "$@"; do
-    printf '  %s✗%s %s -> %s\n' "$RED" "$RESET" "$branch" "$(head_subject "$branch")"
+    print_item "$branch" "mismatch" "$RED" "✗" "$RED" "$(head_subject "$branch")"
   done
   exit 1
 }
@@ -128,7 +128,7 @@ run_git_editor() {
   local editor_cmd
 
   editor_cmd="$(git var GIT_EDITOR)" || die "Could not determine the Git editor."
-  [[ -n "$editor_cmd" ]] || die "Git did not return an editor command."
+  [[ -n "$editor_cmd" ]] || die "git did not return an editor command."
 
   EDIT_TARGET="$file" EDITOR_CMD="$editor_cmd" \
     sh -c 'eval "$EDITOR_CMD \"\$EDIT_TARGET\""' || die "Editor exited with a non-zero status."
@@ -145,10 +145,10 @@ normalize_message_file() {
 show_banner() {
   local target_repo="$1"
 
-  local title="${GREY}>_${RESET} ${BOLD_WHITE}git${RESET} ${PURPLE}›${RESET} ${BOLD_WHITE}edit-message${RESET}"
+  local title="${GREY}>_${RESET} ${BOLD_WHITE}git${RESET} ${PURPLE}›${RESET} ${BOLD_WHITE}amend${RESET} ${PURPLE}›${RESET} ${BOLD_WHITE}message${RESET}"
 
   print_header "$title" \
-    "repo:" "$target_repo" \
+    "repo:   " "$target_repo" \
     "subject:" "$MATCHING_SUBJECT"
 }
 
@@ -208,11 +208,11 @@ main() {
 
   ensure_clean_worktree
   validate_local_branches "${branches[@]}"
+  init_item_widths "${branches[@]}"
   verify_matching_subjects "${branches[@]}"
 
   target_repo="$(git rev-parse --show-toplevel)"
 
-  init_item_widths "${branches[@]}"
   show_banner "$target_repo"
 
   original_file="$(mktemp)"

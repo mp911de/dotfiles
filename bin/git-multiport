@@ -12,6 +12,7 @@ print_help() {
   cat <<EOF
 Usage: $SCRIPT_NAME [-p <source-repo>] [-t <new-ticket>] <source-ref> <target-branch> [target-branch ...]
        $SCRIPT_NAME --continue
+       $SCRIPT_NAME --abort
 
 Cherry-pick one commit onto multiple target branches, optionally fetching the
 source commit from another repository and rewriting ticket references in the
@@ -23,6 +24,7 @@ Options:
   -t, --ticket     Replace ticket references like #123, gh-123, or GH-123 in
                    the last commit message after each cherry-pick.
   --continue       Continue after resolving cherry-pick conflicts.
+  --abort          Abort an in-progress cherry-pick and remove saved state.
   -h, --help       Show this help message
 
 Arguments:
@@ -190,12 +192,17 @@ parse_args() {
   SRC_PATH=""
   NEW_TICKET=""
   CONTINUE_MODE="false"
+  ABORT_MODE="false"
   POSITIONAL=()
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --continue)
         CONTINUE_MODE="true"
+        shift
+        ;;
+      --abort)
+        ABORT_MODE="true"
         shift
         ;;
       -p|--path)
@@ -251,13 +258,19 @@ print_push_hint() {
   printf '\n'
 }
 
+multiport_title() {
+  printf '%s>_%s %sgit%s %s›%s %smultiport%s' \
+    "$GREY" "$RESET" "$BOLD_WHITE" "$RESET" "$PURPLE" "$RESET" "$BOLD_WHITE" "$RESET"
+}
+
 show_banner() {
   local target_repo="$1"
   local source_repo="$2"
   local source_ref_display="$3"
   local source_commit="$4"
 
-  local title="${GREY}>_${RESET} ${BOLD_WHITE}git${RESET} ${PURPLE}›${RESET} ${BOLD_WHITE}multiport${RESET}"
+  local title
+  title="$(multiport_title)"
   local source_val
 
   if [[ -n "$source_ref_display" ]]; then
@@ -268,14 +281,32 @@ show_banner() {
 
   if [[ -n "$source_repo" ]]; then
     print_header "$title" \
-      "source repo:" "$source_repo" \
-      "source:" "$source_val" \
+      "source:" "$source_repo" \
+      "commit:" "$source_val" \
       "target:" "$target_repo"
   else
     print_header "$title" \
       "source:" "$source_val" \
       "target:" "$target_repo"
   fi
+}
+
+abort_flow() {
+  local did_anything="false"
+
+  if git rev-parse -q --verify CHERRY_PICK_HEAD >/dev/null 2>&1; then
+    git cherry-pick --abort
+    log_info "Aborted in-progress cherry-pick."
+    did_anything="true"
+  fi
+
+  if [[ -d "$(state_dir)" ]]; then
+    clear_state
+    log_info "Removed multiport state."
+    did_anything="true"
+  fi
+
+  [[ "$did_anything" == "true" ]] || log_info "Nothing to abort."
 }
 
 continue_flow() {
@@ -322,12 +353,27 @@ process_branches() {
     write_state "$internal_hash" "$new_ticket" "$branch" "$source_ref_display" "$source_repo_display" "${branches[@]:$idx}"
 
     _TOT=$((_TOT+1))
+    (( idx > 0 )) && echo
 
-    if ! git cherry-pick "$internal_hash"; then
+    local cp_out cp_rc=0
+    cp_out="$(git cherry-pick "$internal_hash" 2>&1)" || cp_rc=$?
+
+    local first=true cp_line
+    while IFS= read -r cp_line; do
+      if [[ "$first" == "true" ]]; then
+        printf '%s◆%s %s\n' "$BOLD_YELLOW" "$RESET" "$cp_line"
+        first=false
+      else
+        printf '   %s›%s %s\n' "$PURPLE" "$RESET" "${cp_line# }"
+      fi
+    done <<< "$cp_out"
+
+    if (( cp_rc != 0 )); then
       if git rev-parse -q --verify CHERRY_PICK_HEAD >/dev/null 2>&1; then
         _ERR=$((_ERR+1))
-        print_item "$branch" "conflict" "$RED" "✗" "$RED" \
-          "Resolve conflicts, run 'git add <files>', then '$SCRIPT_NAME --continue'."
+        print_item "$branch" "conflict" "$RED" "✗" "$RED"
+        print_message_box "$ORANGE" "$(multiport_title)" \
+          "${BOLD_YELLOW}Resolve conflicts, run 'git add <files>', then '$SCRIPT_NAME --continue'.${RESET}"
       else
         _ERR=$((_ERR+1))
         print_item "$branch" "failed" "$RED" "✗" "$RED" "Cherry-pick failed."
@@ -363,9 +409,18 @@ main() {
   require_git_repo
   parse_args "$@"
 
+  [[ "$CONTINUE_MODE" != "true" || "$ABORT_MODE" != "true" ]] || die "--continue and --abort cannot be combined."
+
+  if [[ "$ABORT_MODE" == "true" ]]; then
+    [[ ${#POSITIONAL[@]} -eq 0 && -z "$SRC_PATH" && -z "$NEW_TICKET" ]] || die "--abort cannot be combined with source, target branches, -p, or -t."
+    abort_flow
+    return
+  fi
+
   if [[ "$CONTINUE_MODE" == "true" ]]; then
     [[ ${#POSITIONAL[@]} -eq 0 && -z "$SRC_PATH" && -z "$NEW_TICKET" ]] || die "--continue cannot be combined with source, target branches, -p, or -t."
     continue_flow
+    load_remaining_branches
 
     if [[ ${#REMAINING_BRANCHES[@]} -gt 0 ]]; then
       process_branches "$INTERNAL_HASH" "${NEW_TICKET:-}" "${SOURCE_REF_DISPLAY:-}" "${SOURCE_REPO_DISPLAY:-}" "${REMAINING_BRANCHES[@]}"

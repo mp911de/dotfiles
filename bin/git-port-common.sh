@@ -12,6 +12,7 @@ if [[ -t 1 && -t 2 ]]; then
   CYAN=$'\033[36m'
   BL=$'\033[94m'
   BOLD_YELLOW=$'\033[1;93m'
+  ORANGE=$'\033[38;5;208m'
 else
   RESET=''
   GREY=''
@@ -22,6 +23,7 @@ else
   CYAN=''
   BL=''
   BOLD_YELLOW=''
+  ORANGE=''
 fi
 
 _ESC=$'\033'
@@ -44,8 +46,9 @@ shorten_path() {
 
 _box_line() {
   local content="$1"
+  local color="${2:-$GREY}"
   local pad=$(( _BOX_W - $(vis_len "$content") ))
-  printf '%s│%s %s%*s %s│%s\n' "$GREY" "$RESET" "$content" "$pad" "" "$GREY" "$RESET"
+  printf '%s│%s %s%*s %s│%s\n' "$color" "$RESET" "$content" "$pad" "" "$color" "$RESET"
 }
 
 # print_header <title> <label> <value> [<label> <value> ...]
@@ -81,6 +84,28 @@ print_header() {
   printf '%s╰%s╯%s\n\n' "$GREY" "$hline" "$RESET"
 }
 
+# print_message_box <border-color> <title> <body>
+print_message_box() {
+  local border="$1"
+  local title="$2"
+  local body="$3"
+
+  _BOX_W=$(vis_len "$title")
+  local bw
+  bw=$(vis_len "$body")
+  (( bw > _BOX_W )) && _BOX_W=$bw
+
+  local dw=$(( _BOX_W + 2 ))
+  local hline
+  printf -v hline '─%.0s' $(seq 1 "$dw")
+
+  printf '\n%s╭%s╮%s\n' "$border" "$hline" "$RESET"
+  _box_line "$title" "$border"
+  printf '%s│%*s│%s\n' "$border" "$(( _BOX_W + 2 ))" "" "$RESET"
+  _box_line "$body" "$border"
+  printf '%s╰%s╯%s\n\n' "$border" "$hline" "$RESET"
+}
+
 # ── Item lines ────────────────────────────────────────────────────────────────
 
 init_item_widths() {
@@ -94,7 +119,7 @@ init_item_widths() {
 # print_item <name> <status> <status-color> <icon> <icon-color> [reason]
 print_item() {
   local name="$1" status="$2" sc="$3" icon="$4" ic="$5" reason="${6:-}"
-  printf "    %s▸▸%s  %-${_NW}s%s%-8s%s%s%s%s\n" \
+  printf "    %s▸▸%s  %-${_NW}s%s%s%s %s%s%s\n" \
     "$BL" "$RESET" "$name" "$sc" "$status" "$RESET" "$ic" "$icon" "$RESET"
   if [[ -n "$reason" ]]; then
     printf '%*s%s%s%s\n' "$(( 7 + _NW ))" "" "$GREY" "$reason" "$RESET"

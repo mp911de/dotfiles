@@ -59,6 +59,13 @@ create_target_repo() {
   git -C "$TARGET_REPO" commit -m "Initial base" >/dev/null
   git -C "$TARGET_REPO" branch release-1
   git -C "$TARGET_REPO" branch release-2
+
+  git -C "$TARGET_REPO" switch -c release-conflict >/dev/null 2>&1
+  printf 'base\nlocal change that conflicts\n' > "$TARGET_REPO/app.txt"
+  git -C "$TARGET_REPO" add app.txt
+  git -C "$TARGET_REPO" commit -m "Local change on release-conflict" >/dev/null
+  git -C "$TARGET_REPO" switch main >/dev/null 2>&1
+
   log_step_ok "Target repository is ready."
 }
 
@@ -71,7 +78,23 @@ run_multiport_demo() {
 
   ORIGINAL_PORTED_CONTENT="$(git -C "$TARGET_REPO" show release-2:app.txt)"
   [[ "$ORIGINAL_PORTED_CONTENT" == *"feature from source"* ]] || die "git-multiport did not apply the source change to release-2."
+  echo ""
   log_step_ok "git-multiport updated release-1 and release-2."
+}
+
+run_multiport_conflict_demo() {
+  log_info "Running git-multiport against a branch that will conflict."
+  (
+    cd "$TARGET_REPO"
+    "$SCRIPT_DIR/git-multiport" -p "$SOURCE_REPO" main release-conflict || true
+  )
+  echo ""
+  log_info "Aborting the cherry-pick to clean up."
+  (
+    cd "$TARGET_REPO"
+    "$SCRIPT_DIR/git-multiport" --abort
+  )
+  log_step_ok "Conflict scenario demonstrated and aborted."
 }
 
 create_fixed_commit() {
@@ -141,10 +164,13 @@ main() {
   create_source_repo
   create_target_repo
   run_multiport_demo
-  create_fixed_commit
-  run_copy_fix_demo
-  verify_demo
-  show_final_summary
+  echo "----"
+  run_multiport_conflict_demo
+  echo "----"
+  #create_fixed_commit
+  #run_copy_fix_demo
+  #verify_demo
+  #show_final_summary
 
   log_done "Bootstrap completed. Demo repos live in '$ROOT_DIR'."
 }
