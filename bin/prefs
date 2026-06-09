@@ -1,0 +1,9 @@
+DOTFILES=$HOME/.dotfiles
+
+mkdir -p $HOME/.config
+ln -s $DOTFILES/ghostty $HOME/.config/ghostty
+ln -s $DOTFILES/ghostty/com.mitchellh.ghostty $HOME/Library/Application\ Support/com.mitchellh.ghostty
+
+
+mkdir -p "$HOME/Library/Application Support/TextMate"
+ln -s $DOTFILES/TextMate/Bundles "$HOME/Library/Application Support/TextMate"

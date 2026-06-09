@@ -1,6 +1,0 @@
-DOTFILES=$HOME/.dotfiles
-
-mkdir -p $HOME/.config
-ln -s $DOTFILES/ghostty $HOME/.config/ghostty
-
-ln -s $DOTFILES/ghostty/com.mitchellh.ghostty $HOME/Library/Application\ Support/com.mitchellh.ghostty
