@@ -30,6 +30,8 @@ CONTEXT.md
 .agents
 .claude
 .scratch/
+.codex
+.agents
 SPEC.md
 specs/
 .arch-loop/
@@ -38,4 +40,6 @@ specs/
 .aiassistant
 .mvn/.develocity/
 *.iml
-
+skills-lock.json
+.idea/
+.sandcastle/
