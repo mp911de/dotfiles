@@ -28,6 +28,11 @@ AGENTS.md
 agents.md
 claude.md
 CLAUDE.md
-.claude/
+CONTEXT.md
+.agents
+.claude
+.scratch/
 SPEC.md
 specs/
+.arch-loop/
+.spec-loop/
