@@ -3,6 +3,7 @@
 DOTFILES="${HOME}/.dotfiles"
 
 source "${DOTFILES}/lib/utils"
+source "${DOTFILES}/lib/link"
 
 run_prefs_help() {
 
@@ -29,34 +30,6 @@ do
     esac
 done
 
-# Symlink SRC to DEST unless DEST already points to SRC.
-# Existing real files and directories are only replaced with --force.
-link_pref() {
-    local src="$1"
-    local dest="$2"
-
-    if [[ -L "$dest" && "$(readlink "$dest")" == "$src" ]]; then
-        e_success "$dest is up to date"
-        return 0
-    fi
-
-    if [[ -L "$dest" || ! -e "$dest" ]]; then
-        mkdir -p "$(dirname "$dest")"
-        ln -sfn "$src" "$dest"
-        e_success "Linked $dest -> $src"
-        return 0
-    fi
-
-    if [[ $force == true ]]; then
-        rm -rf "$dest"
-        mkdir -p "$(dirname "$dest")"
-        ln -sfn "$src" "$dest"
-        e_success "Replaced $dest -> $src"
-    else
-        e_warning "$dest exists, skipped. Rerun with --force to let the repo win."
-    fi
-}
-
 # zshrc requires oh-my-zsh; keep the clone pristine, customizations live in this repo
 if [[ ! -d "${HOME}/.oh-my-zsh" ]]; then
     e_header "Installing oh-my-zsh..."
@@ -69,8 +42,8 @@ fi
 
 e_header "Linking preferences..."
 
-link_pref "${DOTFILES}/zsh/zshrc" "${HOME}/.zshrc"
-link_pref "${DOTFILES}/ghostty" "${HOME}/.config/ghostty"
-link_pref "${DOTFILES}/ghostty/com.mitchellh.ghostty" "${HOME}/Library/Application Support/com.mitchellh.ghostty"
-link_pref "${DOTFILES}/TextMate/Bundles" "${HOME}/Library/Application Support/TextMate/Bundles"
-link_pref "${DOTFILES}/TextMate/Global.tmProperties" "${HOME}/Library/Application Support/TextMate/Global.tmProperties"
+link_file "${DOTFILES}/zsh/zshrc" "${HOME}/.zshrc"
+link_file "${DOTFILES}/ghostty" "${HOME}/.config/ghostty"
+link_file "${DOTFILES}/ghostty/com.mitchellh.ghostty" "${HOME}/Library/Application Support/com.mitchellh.ghostty"
+link_file "${DOTFILES}/TextMate/Bundles" "${HOME}/Library/Application Support/TextMate/Bundles"
+link_file "${DOTFILES}/TextMate/Global.tmProperties" "${HOME}/Library/Application Support/TextMate/Global.tmProperties"

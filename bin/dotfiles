@@ -32,9 +32,11 @@ if [[ "$1" == "-h" || "$1" == "--help" ]]; then
 fi
 
 # Test for known flags
+force=false
 for opt in $@
 do
     case $opt in
+        -f|--force) force=true ;;
         --no-packages) no_packages=true ;;
         --no-sync) no_sync=true ;;
         -*|--*) e_warning "Warning: invalid option $opt" ;;
@@ -108,20 +110,15 @@ else
     run_devtools
 fi
 
-# Ask before potentially overwriting files
-seek_confirmation "Warning: This step may overwrite your existing dotfiles."
-
-if is_confirmed; then
-    mirrorfiles
-    source ${HOME}/.bash_profile
-else
-    printf "Skipped syncing current dotfiles\n"
-fi
+# Existing local files are skipped unless --force is given
+e_header "Linking dotfiles..."
+link_dotfiles
+source ${HOME}/.bash_profile
 
 # Must happen after dotfiles have been synced and sourced
 e_header "Installing custom software ..."
 
-printf "The sudo password is needed to add brewed bash to /etc/shells and enable htop ..."
+printf "The sudo password is needed to add brewed bash to /etc/shells…"
 
 brewed_bash="$(brew --prefix)/bin/bash"
 if [[ -x $brewed_bash ]] && ! grep -qxF "$brewed_bash" /etc/shells; then

@@ -1,28 +1,59 @@
 #!/bin/bash
 
-# Force create/replace the symlink.
-link() {
-    ln -fs "${DOTFILES_DIRECTORY}/${1}" "${HOME}/${2}"
+# Symlink SRC to DEST unless DEST already points to SRC.
+# Existing real files and directories are only replaced when $force is true.
+link_file() {
+    local src="$1"
+    local dest="$2"
+
+    if [[ -L "$dest" && "$(readlink "$dest")" == "$src" ]]; then
+        e_success "$dest is up to date"
+        return 0
+    fi
+
+    if [[ -L "$dest" || ! -e "$dest" ]]; then
+        mkdir -p "$(dirname "$dest")"
+        ln -sfn "$src" "$dest"
+        e_success "Linked $dest -> $src"
+        return 0
+    fi
+
+    if [[ $force == true ]]; then
+        rm -rf "$dest"
+        mkdir -p "$(dirname "$dest")"
+        ln -sfn "$src" "$dest"
+        e_success "Replaced $dest -> $src"
+    else
+        e_warning "$dest exists, skipped. Rerun with --force to let the repo win."
+    fi
 }
 
-# Create the necessary symbolic links between the `.dotfiles` and `HOME`
-# directory. The `bash_profile` sources other files directly from the
-# `.dotfiles` repository.
+# Copy SRC to DEST. An existing DEST is only replaced when $force is true.
+copy_file() {
+    local src="$1"
+    local dest="$2"
+
+    if [[ -e "$dest" && $force != true ]]; then
+        e_warning "$dest exists, skipped. Rerun with --force to let the repo win."
+        return 0
+    fi
+
+    cp "$src" "$dest" && e_success "Copied $src -> $dest"
+}
+
+# Symlink the dotfiles from the `.dotfiles` repository into HOME. The
+# `bash_profile` sources other files directly from the repository.
 link_dotfiles() {
-    link "bash/bashrc"       ".bashrc"
-    link "bash/bash_profile" ".bash_profile"
-    link "bash/inputrc"      ".inputrc"
-    link "bash/hushlogin"    ".hushlogin"
-    link "git/gitattributes" ".gitattributes"
-    link "git/gitignore"     ".gitignore"
-    link "devtools"          ".devtools"
-}
+    link_file "${DOTFILES_DIRECTORY}/bash/bashrc"       "${HOME}/.bashrc"
+    link_file "${DOTFILES_DIRECTORY}/bash/bash_profile" "${HOME}/.bash_profile"
+    link_file "${DOTFILES_DIRECTORY}/bash/inputrc"      "${HOME}/.inputrc"
+    link_file "${DOTFILES_DIRECTORY}/bash/hushlogin"    "${HOME}/.hushlogin"
+    link_file "${DOTFILES_DIRECTORY}/git/gitattributes" "${HOME}/.gitattributes"
+    link_file "${DOTFILES_DIRECTORY}/git/gitignore"     "${HOME}/.gitignore"
+    link_file "${DOTFILES_DIRECTORY}/devtools"          "${HOME}/.devtools"
 
-# Copy `.gitconfig`.
-# Any global git commands in `~/.bash_profile.local` will be written to
-# `.gitconfig`. This prevents them from being committed to the repository.
-mirrorfiles() {
-    rsync -avz --quiet ${DOTFILES_DIRECTORY}/git/gitconfig  ${HOME}/.gitconfig
-    link_dotfiles
-    e_success "Dotfiles update complete!"
+    # gitconfig is copied, not linked: machine-local `git config --global`
+    # writes must never end up in the repository. Per-machine identity lives
+    # in ~/.gitconfig.local via [include].
+    copy_file "${DOTFILES_DIRECTORY}/git/gitconfig" "${HOME}/.gitconfig"
 }
