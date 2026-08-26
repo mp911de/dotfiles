@@ -101,3 +101,8 @@
 	rebase = true
 [init]
 	defaultBranch = main
+
+# Machine-local overrides (work identity, signing key). Must stay last so
+# local values win. ~/.gitconfig.local is never under version control.
+[include]
+	path = ~/.gitconfig.local
