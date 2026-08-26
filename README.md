@@ -1,101 +1,75 @@
-## How to install
+# dotfiles
 
-The installation step requires the [XCode Command Line
-Tools](https://developer.apple.com/downloads) and may overwrite existing
-dotfiles in your HOME and `.vim` directories.
+Personal macOS setup: shell configuration, Homebrew packages, dev tools
+and application preferences.
+
+## Install
+
+Requires the [XCode Command Line Tools](https://developer.apple.com/downloads).
+May overwrite existing dotfiles in your HOME directory.
 
 ```bash
 $ bash -c "$(curl -fsSL https://raw.githubusercontent.com/mp911de/dotfiles/main/bin/dotfiles)"
 ```
 
-N.B. If you wish to fork this project and maintain your own dotfiles, you must
-substitute my username for your own in the above command and the 2 variables
-found at the top of the `bin/dotfiles` script.
+If you fork this project, substitute your username in the command above and
+in the two variables at the top of `bin/dotfiles`.
 
-## How to update
-
-You should run the update when:
-
-* You make a change to `~/.dotfiles/git/gitconfig` (the only file that is
-  copied rather than symlinked).
-* You want to pull changes from the remote repository.
-* You want to update Homebrew formulae and Node packages.
-
-Run the dotfiles command:
-
-```bash
-$ dotfiles
-```
-
-Options:
+## Commands
 
 <table>
     <tr>
-        <td><code>-h</code>, <code>--help</code></td>
-        <td>Help</td>
+        <td><code>dotfiles</code></td>
+        <td>Full sync: pull, Homebrew packages, dev tools, symlinks, OS defaults.
+            Options: <code>--no-packages</code>, <code>--no-sync</code>.</td>
     </tr>
     <tr>
-        <td><code>--no-packages</code></td>
-        <td>Suppress package updates</td>
+        <td><code>devtools</code></td>
+        <td>Install the pinned dev tools only (Maven, MongoDB, mongosh, Redis).</td>
     </tr>
     <tr>
-        <td><code>--no-sync</code></td>
-        <td>Suppress pulling from the remote repository</td>
+        <td><code>prefs</code></td>
+        <td>Symlink application preferences into place. Idempotent. With
+            <code>-f</code>/<code>--force</code> existing local files are
+            replaced (repo wins); without it they are left alone.</td>
+    </tr>
+    <tr>
+        <td><code>osxprops</code></td>
+        <td>Apply custom macOS defaults (also offered by <code>dotfiles</code>).</td>
     </tr>
 </table>
 
-### Custom OS X defaults
+## Symlinked vs copied
 
-Custom OS X settings can be applied during the `dotfiles` process. They can
-also be applied independently by running the following command:
+`bin/dotfiles` symlinks `~/.bashrc`, `~/.bash_profile`, `~/.inputrc`,
+`~/.hushlogin`, `~/.gitattributes`, `~/.gitignore` and `~/.devtools` into
+this repository.
 
-```bash
-$ osxprops
-```
+`git/gitconfig` is the exception: it is copied to `~/.gitconfig` so
+machine-local git configuration (e.g. credentials) never ends up in the
+repository.
 
-### Local/private Bash and Vim configuration
+## Local overrides
 
-Any special-case Vim directives local to a machine should be stored in a
-`~/.vimrc.local` file on that machine. The directives will then be automatically
-imported into your master `.vimrc`.
+Not under version control, sourced if present:
 
-Any private and custom Bash commands and configuration should be placed in a
-`~/.bash_profile.local` file. This file will not be under version control or
-committed to a public repository. If `~/.bash_profile.local` exists, it will be
-sourced for inclusion in `bash_profile`.
+* `~/.bash_profile.local` for private bash configuration and git credentials.
+* `~/.zshrc.local` for private zsh configuration.
+* `~/.dotfilesrc` to prepend a custom Homebrew location to the PATH.
 
-Here is an example `~/.bash_profile.local`:
+## Devtools version pins
 
-```bash
-# PATH exports
-PATH=$PATH:~/.gem/ruby/1.8/bin
-export PATH
+The root `devtools` file pins the tool versions (`MAVEN_VERSION`,
+`MONGODB_VERSION`, `MONGODB_TOOLS_VERSION`, `REDIS_VERSION`) and is sourced
+on every shell start. Bump a version there and rerun `devtools`.
 
-# Git credentials
-# Not under version control to prevent people from
-# accidentally committing with your details
-GIT_AUTHOR_NAME="snusnu"
-GIT_AUTHOR_EMAIL="your@email.com"
-GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME"
-GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
-# Set the credentials (modifies ~/.gitconfig)
-git config --global user.name "$GIT_AUTHOR_NAME"
-git config --global user.email "$GIT_AUTHOR_EMAIL"
-```
+## Preferences
 
-N.B. Because the `git/gitconfig` file is copied to `~/.gitconfig`, any private
-git configuration specified in `~/.bash_profile.local` will not be committed to
-your dotfiles repository.
-
-### Custom location for Homebrew installation
-
-If your Homebrew installation is not in `/usr/local` then you must prepend your
-custom installation's `bin` to the PATH in a file called `~/.dotfilesrc`:
-
-```bash
-# Add `brew` command's custom location to PATH
-PATH="/opt/acme/bin:$PATH"
-```
+`bin/prefs` symlinks application configuration from this repository into
+place: Ghostty (`~/.config/ghostty` and its Application Support directory)
+and TextMate (`Bundles` and `Global.tmProperties`). TextMate app-level
+preferences (`com.macromates.TextMate.plist`) are intentionally not synced;
+symlinking plists is unreliable because cfprefsd caches them.
 
 ## Acknowledgements
 
