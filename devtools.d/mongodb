@@ -4,10 +4,16 @@ MONGODB_VERSION=8.2.2
 mongodb_directory="$DEVTOOLS_HOME/mongodb-macos-${UNAME_A}-${MONGODB_VERSION}"
 
 install_mongodb() {
-    if [[ ! -d "$mongodb_directory" ]]; then
-        e_header "Installing missing MongoDB version ${MONGODB_VERSION}..."
-        curl -sSL "https://fastdl.mongodb.org/osx/mongodb-macos-${UNAME_M}-${MONGODB_VERSION}.tgz" | tar xz -C "$DEVTOOLS_HOME" \
-            && chmod a+x "$mongodb_directory/bin/"* \
-            && e_success "Done"
+    if [[ -d "$mongodb_directory" ]]; then
+        e_success "MongoDB ${MONGODB_VERSION} installed"
+        return 0
+    fi
+
+    e_header "Installing MongoDB ${MONGODB_VERSION}..."
+    if curl -sSL "https://fastdl.mongodb.org/osx/mongodb-macos-${UNAME_M}-${MONGODB_VERSION}.tgz" | tar xz -C "$DEVTOOLS_HOME" \
+        && chmod a+x "$mongodb_directory/bin/"*; then
+        e_success "MongoDB ${MONGODB_VERSION} installed"
+    else
+        e_error "MongoDB ${MONGODB_VERSION} installation failed"
     fi
 }

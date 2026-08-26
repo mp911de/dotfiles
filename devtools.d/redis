@@ -4,11 +4,17 @@ REDIS_VERSION=7.2.1
 redis_directory="$DEVTOOLS_HOME/redis"
 
 install_redis() {
-    if [[ ! -d "$redis_directory" ]]; then
-        e_header "Installing missing Redis version ${REDIS_VERSION}..."
-        git clone https://github.com/redis/redis.git "$redis_directory" \
-            && git -C "$redis_directory" checkout "${REDIS_VERSION}" \
-            && make -C "$redis_directory/src" \
-            && e_success "Done"
+    if [[ -d "$redis_directory" ]]; then
+        e_success "Redis ${REDIS_VERSION} installed"
+        return 0
+    fi
+
+    e_header "Installing Redis ${REDIS_VERSION}..."
+    if git clone https://github.com/redis/redis.git "$redis_directory" \
+        && git -C "$redis_directory" checkout "${REDIS_VERSION}" \
+        && make -C "$redis_directory/src"; then
+        e_success "Redis ${REDIS_VERSION} installed"
+    else
+        e_error "Redis ${REDIS_VERSION} installation failed"
     fi
 }
