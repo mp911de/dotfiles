@@ -12,7 +12,7 @@
     adda = !git add -A && git status
 
     # Fetch a repository ($1) and checkout its ref ($2) HEAD
-    browse = !bash -c 'git fetch "$1" "$2" && git checkout FETCH_HEAD' -
+    browse = !bash -c 'git fetch $1 $2 && git checkout FETCH_HEAD' -
 
     # Diff what is staged for the next commit
     diffc = diff --cached
@@ -40,6 +40,7 @@
     co = checkout
 	permission-reset = !git diff -p -R --no-color | grep -E \"^(diff|(old|new) mode)\" --color=never | git apply
     purr = pull --rebase
+	backport = "!f() {\n  case \"$1\" in\n    \"\"|0|*[!0-9]*)\n      echo \"Usage: git backport <positive-number-of-commits>\" >&2\n      return 2\n      ;;\n  esac\n  git cherry-pick \"@{-1}~$1..@{-1}\"\n}; f"
 
 [color]
     # color opts: normal, black, red, green, yellow, blue, magenta, cyan, or white
@@ -48,9 +49,10 @@
 
 [core]
     # Use custom `.gitignore` and `.gitattributes`
-	excludesfile = ~/.gitignore
+	excludesFile = ~/.gitignore
     attributesfile = ~/.gitattributes
 	autocrlf = input
+	editor = mate -wl1
 
     
 [credential]
@@ -85,8 +87,8 @@
 	signingkey = E87AC0BFDCB008B6D7034FC7075C49E027E0F12C
 [push]
 	default = simple
+	autoSetupRemote = true
 [commit]
-	template = ~/.stCommitMsg
 	gpgsign = true
 [branch]
 	autosetuprebase = always

@@ -6,7 +6,7 @@ UNAME_A=$(uname -m | sed s/arm64/aarch64/g)
 UNAME_O=$(uname -o | tr '[:upper:]' '[:lower:]')
 
 DEVTOOLS_HOME=/Users/Shared/Entwicklung/tools
-MAVEN_VERSION=3.9.11
+MAVEN_VERSION=3.9.16
 MONGODB_VERSION=8.2.2
 MONGODB_TOOLS_VERSION=2.5.10
 REDIS_VERSION=7.2.1

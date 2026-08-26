@@ -1,17 +1,33 @@
-#!/usr/bin/env bash
-set -Eeuo pipefail
+#!/usr/bin/env python3
+"""Replace matching HEAD commits on target branches with a fixed commit.
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT_NAME="$(basename "$0")"
-STATE_NAMESPACE="git-copy-fix-state"
+Given a fixed commit in the current repository and one or more target branches,
+the command rewrites each branch whose HEAD commit message matches the fixed
+commit: it drops the branch's HEAD commit and cherry-picks the fixed commit in
+its place. Branches whose HEAD message does not match are left untouched.
 
-# shellcheck source=/Users/mark/.dotfiles/bin/git-port-common.sh
-source "$SCRIPT_DIR/git-port-common.sh"
+When a cherry-pick conflicts the run stops and saves its progress; rerunning with
+``--continue`` resumes from the interrupted branch after the conflict is
+resolved.
+"""
 
-print_help() {
-  cat <<EOF
-Usage: $SCRIPT_NAME <source-ref> <target-branch> [target-branch ...]
-       $SCRIPT_NAME --continue
+from __future__ import annotations
+
+import os
+import sys
+from dataclasses import dataclass, field
+from typing import List, Optional
+
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+
+from git_port_common import Console, Git, PortError, StateStore  # noqa: E402
+
+SCRIPT_NAME = os.path.basename(sys.argv[0])
+STATE_NAMESPACE = "git-copy-fix-state"
+
+HELP = f"""\
+Usage: {SCRIPT_NAME} <source-ref> <target-branch> [target-branch ...]
+       {SCRIPT_NAME} --continue
 
 Replace matching HEAD commits on target branches with a fixed commit from the
 current repository.
@@ -26,313 +42,228 @@ Arguments:
                     the source commit message.
   [target-branch ...]
                     Additional branches to check in the order provided.
-EOF
-}
+"""
 
-state_dir() {
-  git rev-parse --git-path "$STATE_NAMESPACE"
-}
 
-state_file() {
-  printf '%s/state.env\n' "$(state_dir)"
-}
+@dataclass
+class Arguments:
+    continue_mode: bool = False
+    positionals: List[str] = field(default_factory=list)
 
-remaining_file() {
-  printf '%s/remaining\n' "$(state_dir)"
-}
 
-updated_file() {
-  printf '%s/updated\n' "$(state_dir)"
-}
+def parse_arguments(argv: List[str]) -> Arguments:
+    parsed = Arguments()
+    for argument in argv:
+        if argument == "--continue":
+            parsed.continue_mode = True
+        elif argument in ("-h", "--help"):
+            print(HELP, end="")
+            raise SystemExit(0)
+        elif argument.startswith("-"):
+            raise PortError(f"Unknown option: {argument}")
+        else:
+            parsed.positionals.append(argument)
+    return parsed
 
-ensure_state_dir() {
-  mkdir -p "$(state_dir)"
-}
 
-write_lines_to_file() {
-  local file="$1"
-  shift
+class CopyFix:
+    """Drives the rewrite across the target branches and persists its progress.
 
-  : > "$file"
+    The persisted state holds everything ``--continue`` needs: the fixed commit,
+    its display reference, the branch interrupted by a conflict, the branches not
+    yet processed and the branches already rewritten (for the push hint).
+    """
 
-  while [[ $# -gt 0 ]]; do
-    printf '%s\n' "$1" >> "$file"
-    shift
-  done
-}
+    def __init__(self, console: Console, git: Git) -> None:
+        self.console = console
+        self.git = git
+        self.state = StateStore(git, STATE_NAMESPACE)
+        self.applied: List[str] = []
+        self.targets: List[str] = []
+        self.source_ref = ""
+        self.source_commit = ""
 
-load_remaining_branches() {
-  REMAINING_BRANCHES=()
+    # -- state -----------------------------------------------------------------
 
-  if [[ -f "$(remaining_file)" ]]; then
-    while IFS= read -r line || [[ -n "$line" ]]; do
-      REMAINING_BRANCHES+=("$line")
-    done < "$(remaining_file)"
-  fi
-}
+    def _save_progress(self, current_branch: str, remaining: List[str]) -> None:
+        self.state.save(
+            {
+                "source_ref": self.source_ref,
+                "source_commit": self.source_commit,
+                "current_branch": current_branch,
+                "remaining": remaining,
+                "applied": self.applied,
+                "targets": self.targets,
+            }
+        )
 
-load_updated_branches() {
-  UPDATED_BRANCHES=()
+    # -- the rewrite -----------------------------------------------------------
 
-  if [[ -f "$(updated_file)" ]]; then
-    while IFS= read -r line || [[ -n "$line" ]]; do
-      UPDATED_BRANCHES+=("$line")
-    done < "$(updated_file)"
-  fi
-}
+    def _head_matches_source(self) -> bool:
+        return self.git.head_message("HEAD") == self.git.head_message(self.source_commit)
 
-append_updated_branch() {
-  printf '%s\n' "$1" >> "$(updated_file)"
-}
+    def _process(self, branches: List[str]) -> None:
+        a = self.console.ansi
+        for index, branch in enumerate(branches):
+            self.git.ensure_clean_worktree()
+            if not self.git.switch(branch):
+                raise PortError(
+                    f"Could not switch to target branch {self.console.branch(branch)}."
+                )
 
-shift_remaining_branch() {
-  local tmp
+            self._save_progress(branch, branches[index:])
 
-  tmp="$(mktemp)"
-  if [[ -f "$(remaining_file)" ]]; then
-    tail -n +2 "$(remaining_file)" > "$tmp"
-  fi
-  mv "$tmp" "$(remaining_file)"
-}
+            if not self._head_matches_source():
+                self.console.item(branch, "skipped", a.cyan, "◆", a.bold_yellow)
+                continue
 
-write_state() {
-  local source_ref_display="$1"
-  local source_commit="$2"
-  local current_branch="$3"
-  shift 3
+            if not self.git.has_ref("HEAD~1"):
+                raise PortError(
+                    f"Branch {self.console.branch(branch)} does not have a parent "
+                    f"commit to reset to."
+                )
 
-  ensure_state_dir
+            self.git.reset_hard("HEAD~1")
+            if self.git.interactive("cherry-pick", self.source_commit) != 0:
+                self._report_cherry_pick_failure(branch)
+                raise SystemExit(1)
 
-  {
-    printf 'SOURCE_REF_DISPLAY=%q\n' "$source_ref_display"
-    printf 'SOURCE_COMMIT=%q\n' "$source_commit"
-    printf 'CURRENT_BRANCH=%q\n' "$current_branch"
-  } > "$(state_file)"
+            self.applied.append(branch)
+            self.console.item(branch, "applied", a.green, "✓", a.green)
 
-  write_lines_to_file "$(remaining_file)" "$@"
-}
+    def _report_cherry_pick_failure(self, branch: str) -> None:
+        a = self.console.ansi
+        if self.git.cherry_pick_in_progress():
+            self.console.item(
+                branch, "conflict", a.red, "✗", a.red,
+                f"Resolve conflicts, run 'git add', then '{SCRIPT_NAME} --continue'.",
+            )
+        else:
+            self.console.item(branch, "failed", a.red, "✗", a.red, "Cherry-pick failed.")
+            self.state.clear()
 
-read_state() {
-  [[ -f "$(state_file)" ]] || die "No saved state found. Nothing to continue."
-  [[ -f "$(remaining_file)" ]] || die "State is incomplete: missing remaining branch list."
+    # -- resuming --------------------------------------------------------------
 
-  # shellcheck disable=SC1090
-  source "$(state_file)"
+    def _resume(self) -> List[str]:
+        """Finish the interrupted cherry-pick and return the branches left."""
+        a = self.console.ansi
+        saved = self.state.load()
+        if "remaining" not in saved or "current_branch" not in saved:
+            raise PortError("State is invalid: missing branch information.")
 
-  [[ -n "${SOURCE_COMMIT:-}" ]] || die "State is invalid: SOURCE_COMMIT missing."
-  [[ -n "${CURRENT_BRANCH:-}" ]] || die "State is invalid: CURRENT_BRANCH missing."
-}
+        self.source_ref = saved.get("source_ref", "")
+        self.source_commit = saved["source_commit"]
+        self.applied = saved.get("applied", [])
+        self.targets = saved.get("targets", [])
+        current_branch = saved["current_branch"]
+        remaining = saved["remaining"]
 
-clear_state() {
-  rm -rf "$(state_dir)"
-}
+        self.console.reserve_item_width(remaining)
+        self.show_banner(self.git.top_level())
+        self.console.info(f"Resuming cherry-pick on {self.console.branch(current_branch)}.")
 
-source_message() {
-  git log -1 --pretty=%B "$1"
-}
+        actual_branch = self.git.current_branch()
+        if actual_branch != current_branch:
+            raise PortError(
+                f"State expects {self.console.branch(current_branch)}, "
+                f"but you are on {self.console.branch(actual_branch)}."
+            )
+        if self.git.has_unresolved_conflicts():
+            raise PortError(
+                f"Conflicts still exist. Resolve them, run 'git add <files>', "
+                f"then run '{SCRIPT_NAME} --continue'."
+            )
+        if not self.git.cherry_pick_in_progress():
+            raise PortError("No cherry-pick appears to be in progress.")
 
-head_matches_source_message() {
-  local source_commit="$1"
-  local source_msg
-  local target_msg
+        if self.git.interactive("cherry-pick", "--continue") != 0:
+            raise PortError("Could not continue the cherry-pick.")
 
-  source_msg="$(source_message "$source_commit")"
-  target_msg="$(git log -1 --pretty=%B HEAD)"
+        self.applied.append(current_branch)
+        self.console.item(current_branch, "resumed", a.green, "✓", a.green)
+        return remaining[1:]
 
-  [[ "$source_msg" == "$target_msg" ]]
-}
+    # -- presentation ----------------------------------------------------------
 
-print_push_hint() {
-  local branch
+    def show_banner(self, repository: str) -> None:
+        a = self.console.ansi
+        title = (
+            f"{a.grey}>_{a.reset} {a.bold_white}git{a.reset} {a.purple}›{a.reset} "
+            f"{a.bold_white}copy-fix{a.reset}"
+        )
+        commit = self.console.commit(self.source_commit)
+        if self.source_ref:
+            source = f"{self.source_ref}  {a.grey}→{a.reset}  {commit}"
+        else:
+            source = commit
+        self.console.header(title, "source:", source, "target:", repository)
 
-  load_updated_branches
+    def print_push_hint(self) -> None:
+        if not self.applied:
+            return
+        a = self.console.ansi
+        branches = " ".join(self.console.branch(branch) for branch in self.applied)
+        sys.stdout.write(
+            f"  {a.grey}push:{a.reset}  git push --force-with-lease origin {branches}\n"
+        )
 
-  if [[ ${#UPDATED_BRANCHES[@]} -eq 0 ]]; then
+    def _finish(self) -> None:
+        self.console.summary(len(self.applied), len(self.targets))
+        self.print_push_hint()
+        self.state.clear()
+
+    # -- entry points ----------------------------------------------------------
+
+    def resume(self) -> None:
+        remaining = self._resume()
+        if remaining:
+            self._process(remaining)
+        self._finish()
+
+    def start(self, source_ref: str, target_branches: List[str]) -> None:
+        self.git.ensure_clean_worktree()
+        self.state.clear()
+
+        commit = self.git.resolve_commit(source_ref)
+        if commit is None:
+            raise PortError(f"Could not resolve '{source_ref}' as a commit.")
+
+        self.source_ref = source_ref
+        self.source_commit = commit
+        self.targets = list(target_branches)
+
+        self.console.reserve_item_width(target_branches)
+        self.show_banner(self.git.top_level())
+        self._process(target_branches)
+        self._finish()
+
+
+def main(argv: List[str]) -> int:
+    console = Console()
+    git = Git()
+    try:
+        git.require_repository()
+        arguments = parse_arguments(argv)
+        command = CopyFix(console, git)
+
+        if arguments.continue_mode:
+            if arguments.positionals:
+                raise PortError(
+                    "--continue cannot be combined with source or target branches."
+                )
+            command.resume()
+            return 0
+
+        if len(arguments.positionals) < 2:
+            print(HELP, end="")
+            return 1
+
+        command.start(arguments.positionals[0], arguments.positionals[1:])
+    except PortError as error:
+        console.error(str(error))
+        return 1
     return 0
-  fi
 
-  printf '  %spush:%s  git push --force-with-lease origin' "$GREY" "$RESET"
-  for branch in "${UPDATED_BRANCHES[@]}"; do
-    printf ' %s' "$(format_branch "$branch")"
-  done
-  printf '\n'
-}
 
-show_banner() {
-  local target_repo="$1"
-  local source_ref_display="$2"
-  local source_commit="$3"
-
-  local title="${GREY}>_${RESET} ${BOLD_WHITE}git${RESET} ${PURPLE}›${RESET} ${BOLD_WHITE}copy-fix${RESET}"
-  local source_val
-
-  if [[ -n "$source_ref_display" ]]; then
-    source_val="${source_ref_display}  ${GREY}→${RESET}  ${GREEN}${source_commit:0:8}${RESET}"
-  else
-    source_val="${GREEN}${source_commit:0:8}${RESET}"
-  fi
-
-  print_header "$title" \
-    "source:" "$source_val" \
-    "target:" "$target_repo"
-}
-
-parse_args() {
-  CONTINUE_MODE="false"
-  POSITIONAL=()
-
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --continue)
-        CONTINUE_MODE="true"
-        shift
-        ;;
-      -h|--help)
-        print_help
-        exit 0
-        ;;
-      -*)
-        die "Unknown option: $1"
-        ;;
-      *)
-        POSITIONAL+=("$1")
-        shift
-        ;;
-    esac
-  done
-}
-
-continue_flow() {
-  local actual_branch
-
-  read_state
-  load_remaining_branches
-  init_item_widths "${REMAINING_BRANCHES[@]}"
-  show_banner "$(git rev-parse --show-toplevel)" "${SOURCE_REF_DISPLAY:-}" "$SOURCE_COMMIT"
-  log_info "Resuming cherry-pick on $(format_branch "$CURRENT_BRANCH")."
-
-  actual_branch="$(git_current_branch)"
-  [[ "$actual_branch" == "$CURRENT_BRANCH" ]] || die "State expects $(format_branch "$CURRENT_BRANCH"), but you are on $(format_branch "$actual_branch")."
-
-  has_unresolved_conflicts && die "Conflicts still exist. Resolve them, run 'git add <files>', then run '$SCRIPT_NAME --continue'."
-  git rev-parse -q --verify CHERRY_PICK_HEAD >/dev/null 2>&1 || die "No cherry-pick appears to be in progress."
-
-  git cherry-pick --continue
-  append_updated_branch "$CURRENT_BRANCH"
-  shift_remaining_branch
-  _OK=$((_OK+1)); _TOT=$((_TOT+1))
-  print_item "$CURRENT_BRANCH" "resumed" "$GREEN" "✓" "$GREEN"
-}
-
-process_branches() {
-  local source_ref="$1"
-  local source_commit="$2"
-  shift 2
-
-  local branches=("$@")
-  local idx
-  local branch
-
-  for idx in "${!branches[@]}"; do
-    branch="${branches[$idx]}"
-
-    ensure_clean_worktree
-
-    if ! git switch "$branch" >/dev/null 2>&1; then
-      die "Could not switch to target branch $(format_branch "$branch")."
-    fi
-
-    write_state "$source_ref" "$source_commit" "$branch" "${branches[@]:$idx}"
-
-    _TOT=$((_TOT+1))
-
-    if ! head_matches_source_message "$source_commit"; then
-      shift_remaining_branch
-      _OK=$((_OK+1))
-      print_item "$branch" "skipped" "$CYAN" "◆" "$BOLD_YELLOW"
-      continue
-    fi
-
-    git rev-parse --verify HEAD~1 >/dev/null 2>&1 || die "Branch $(format_branch "$branch") does not have a parent commit to reset to."
-
-    git reset --hard HEAD~1 >/dev/null 2>&1
-
-    if ! git cherry-pick "$source_commit"; then
-      if git rev-parse -q --verify CHERRY_PICK_HEAD >/dev/null 2>&1; then
-        _ERR=$((_ERR+1))
-        print_item "$branch" "conflict" "$RED" "✗" "$RED" \
-          "Resolve conflicts, run 'git add', then '$SCRIPT_NAME --continue'."
-      else
-        _ERR=$((_ERR+1))
-        print_item "$branch" "failed" "$RED" "✗" "$RED" "Cherry-pick failed."
-        clear_state
-      fi
-      exit 1
-    fi
-
-    append_updated_branch "$branch"
-    shift_remaining_branch
-    _OK=$((_OK+1))
-    print_item "$branch" "applied" "$GREEN" "✓" "$GREEN"
-  done
-}
-
-finish_success() {
-  load_updated_branches
-
-  print_summary "${#UPDATED_BRANCHES[@]}" "$_TOT" "$_ERR"
-  print_push_hint
-  clear_state
-}
-
-main() {
-  local source_ref
-  local source_commit
-  local target_repo
-  local target_branches=()
-  _TOT=0
-  _OK=0
-  _ERR=0
-
-  require_git_repo
-  parse_args "$@"
-
-  if [[ "$CONTINUE_MODE" == "true" ]]; then
-    [[ ${#POSITIONAL[@]} -eq 0 ]] || die "--continue cannot be combined with source or target branches."
-    continue_flow
-
-    if [[ ${#REMAINING_BRANCHES[@]} -gt 0 ]]; then
-      process_branches "${SOURCE_REF_DISPLAY:-}" "$SOURCE_COMMIT" "${REMAINING_BRANCHES[@]}"
-    fi
-
-    finish_success
-    return
-  fi
-
-  if [[ ${#POSITIONAL[@]} -lt 2 ]]; then
-    print_help
-    exit 1
-  fi
-
-  ensure_clean_worktree
-  clear_state
-
-  source_ref="${POSITIONAL[0]}"
-  target_branches=("${POSITIONAL[@]:1}")
-
-  if ! git rev-parse --verify "${source_ref}^{commit}" >/dev/null 2>&1; then
-    die "Could not resolve '$source_ref' as a commit."
-  fi
-  source_commit="$(git rev-parse --verify "${source_ref}^{commit}")"
-  target_repo="$(git rev-parse --show-toplevel)"
-
-  ensure_state_dir
-  : > "$(updated_file)"
-
-  init_item_widths "${target_branches[@]}"
-  show_banner "$target_repo" "$source_ref" "$source_commit"
-  process_branches "$source_ref" "$source_commit" "${target_branches[@]}"
-  finish_success
-}
-
-main "$@"
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

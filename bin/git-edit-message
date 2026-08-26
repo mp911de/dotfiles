@@ -1,18 +1,29 @@
-#!/usr/bin/env bash
-set -Eeuo pipefail
+#!/usr/bin/env python3
+"""Edit the HEAD commit message across several local branches at once.
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT_NAME="$(basename "$0")"
+The command opens the Git-configured editor seeded with the HEAD commit message
+of the first branch, then amends the HEAD commit on every listed branch with the
+edited message. Before opening the editor it verifies that the subject line of
+each branch's HEAD commit matches, so a typo cannot silently rewrite unrelated
+commits.
+"""
 
-# shellcheck source=/Users/mark/.dotfiles/bin/git-port-common.sh
-source "$SCRIPT_DIR/git-port-common.sh"
+from __future__ import annotations
 
-TEMP_FILES=()
-UPDATED_BRANCHES=()
+import os
+import subprocess
+import sys
+import tempfile
+from typing import List
 
-print_help() {
-  cat <<EOF
-Usage: $SCRIPT_NAME <branch> [branch ...]
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+
+from git_port_common import Console, Git, PortError  # noqa: E402
+
+SCRIPT_NAME = os.path.basename(sys.argv[0])
+
+HELP = f"""\
+Usage: {SCRIPT_NAME} <branch> [branch ...]
 
 Edit the HEAD commit message across multiple local branches. The script opens the
 Git-configured editor with the full HEAD commit message from the first branch,
@@ -29,216 +40,164 @@ Options:
 Arguments:
   <branch>          Local branch whose HEAD commit message should be updated.
   [branch ...]      Additional local branches to rewrite in the order provided.
-EOF
-}
+"""
 
-track_temp_file() {
-  TEMP_FILES+=("$1")
-}
 
-cleanup_temp_files() {
-  local file
+def parse_branches(argv: List[str]) -> List[str]:
+    """Parse the command line into the ordered list of target branches."""
+    branches: List[str] = []
+    arguments = list(argv)
+    while arguments:
+        argument = arguments.pop(0)
+        if argument in ("-h", "--help"):
+            print(HELP, end="")
+            raise SystemExit(0)
+        if argument == "--":
+            branches.extend(arguments)
+            break
+        if argument.startswith("-"):
+            raise PortError(f"Unknown option: {argument}")
+        branches.append(argument)
+    return branches
 
-  for file in "${TEMP_FILES[@]:-}"; do
-    [[ -n "$file" ]] || continue
-    rm -f "$file"
-  done
-}
 
-branch_exists() {
-  local branch="$1"
+class EditMessage:
+    """Coordinates the validation, editing and amend steps of the command."""
 
-  git show-ref --verify --quiet "refs/heads/$branch"
-}
+    def __init__(self, console: Console, git: Git) -> None:
+        self.console = console
+        self.git = git
+        self.updated: List[str] = []
 
-head_subject() {
-  git log -1 --pretty=%s "$1"
-}
+    # -- validation ------------------------------------------------------------
 
-head_message() {
-  git log -1 --pretty=%B "$1"
-}
+    def validate_branches_exist(self, branches: List[str]) -> None:
+        for branch in branches:
+            if not self.git.branch_exists(branch):
+                raise PortError(f"Local branch does not exist: {branch}")
 
-parse_args() {
-  POSITIONAL=()
+    def require_matching_subjects(self, branches: List[str]) -> str:
+        """Return the shared subject, or abort listing every branch's subject."""
+        expected = self.git.head_subject(branches[0])
+        if all(self.git.head_subject(branch) == expected for branch in branches):
+            return expected
 
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      -h|--help)
-        print_help
-        exit 0
-        ;;
-      --)
-        shift
-        while [[ $# -gt 0 ]]; do
-          POSITIONAL+=("$1")
-          shift
-        done
-        ;;
-      -*)
-        die "Unknown option: $1"
-        ;;
-      *)
-        POSITIONAL+=("$1")
-        shift
-        ;;
-    esac
-  done
-}
+        a = self.console.ansi
+        self.console.error(
+            "HEAD commit subjects do not match across the provided branches. Aborting."
+        )
+        for branch in branches:
+            self.console.item(
+                branch, "mismatch", a.red, "✗", a.red, self.git.head_subject(branch)
+            )
+        raise SystemExit(1)
 
-validate_local_branches() {
-  local branch
+    # -- editing ---------------------------------------------------------------
 
-  for branch in "$@"; do
-    branch_exists "$branch" || die "Local branch does not exist: $branch"
-  done
-}
+    def edit_message(self, seed: str) -> str:
+        """Open the Git editor on ``seed`` and return the cleaned-up result."""
+        editor = self.git.editor_command()
+        with tempfile.TemporaryDirectory(prefix="git-edit-message-") as workspace:
+            draft = os.path.join(workspace, "COMMIT_EDITMSG")
+            with open(draft, "w") as handle:
+                handle.write(seed)
 
-verify_matching_subjects() {
-  local expected_branch="$1"
-  local expected_subject
-  local branch
-  local subject
-  local mismatch="false"
+            environment = {**os.environ, "GIT_EDIT_TARGET": draft}
+            exit_code = subprocess.run(
+                f'{editor} "$GIT_EDIT_TARGET"', shell=True, env=environment
+            ).returncode
+            if exit_code != 0:
+                raise PortError("Editor exited with a non-zero status.")
 
-  expected_subject="$(head_subject "$expected_branch")"
+            with open(draft) as handle:
+                edited = handle.read()
 
-  for branch in "$@"; do
-    subject="$(head_subject "$branch")"
-    if [[ "$subject" != "$expected_subject" ]]; then
-      mismatch="true"
-      break
-    fi
-  done
+        cleaned = self.git.stripspace(edited)
+        if not cleaned.strip():
+            raise PortError("Commit message cannot be empty.")
+        return cleaned
 
-  if [[ "$mismatch" == "false" ]]; then
-    MATCHING_SUBJECT="$expected_subject"
+    # -- amending --------------------------------------------------------------
+
+    def amend(self, branch: str, message: str) -> None:
+        a = self.console.ansi
+        self.git.ensure_clean_worktree()
+        if not self.git.switch(branch):
+            raise PortError(f"Could not switch to branch {self.console.branch(branch)}.")
+        if not self._amend_with_message(message):
+            raise PortError(
+                f"Could not amend the HEAD commit message on "
+                f"{self.console.branch(branch)}."
+            )
+        self.updated.append(branch)
+        self.console.item(branch, "amended", a.green, "✓", a.green)
+
+    def _amend_with_message(self, message: str) -> bool:
+        with tempfile.NamedTemporaryFile(
+            "w", prefix="git-edit-message-", suffix=".txt", delete=False
+        ) as handle:
+            handle.write(message)
+            path = handle.name
+        try:
+            return self.git.amend_with_message_file(path)
+        finally:
+            os.unlink(path)
+
+    # -- presentation ----------------------------------------------------------
+
+    def show_banner(self, repository: str, subject: str) -> None:
+        a = self.console.ansi
+        title = (
+            f"{a.grey}>_{a.reset} {a.bold_white}git{a.reset} {a.purple}›{a.reset} "
+            f"{a.bold_white}amend{a.reset} {a.purple}›{a.reset} {a.bold_white}message{a.reset}"
+        )
+        self.console.header(title, "repo:   ", repository, "subject:", subject)
+
+    def print_push_hint(self) -> None:
+        if not self.updated:
+            return
+        a = self.console.ansi
+        targets = " ".join(self.console.branch(branch) for branch in self.updated)
+        sys.stdout.write(f"  {a.grey}push:{a.reset}  git push origin {targets}\n")
+
+    # -- orchestration ---------------------------------------------------------
+
+    def run(self, branches: List[str]) -> None:
+        self.git.ensure_clean_worktree()
+        self.validate_branches_exist(branches)
+        self.console.reserve_item_width(branches)
+        subject = self.require_matching_subjects(branches)
+
+        self.show_banner(self.git.top_level(), subject)
+
+        original = self.git.stripspace(self.git.head_message_raw(branches[0]))
+        edited = self.edit_message(original)
+        if edited == original:
+            self.console.info("Commit message unchanged. No branches were updated.")
+            return
+
+        for branch in branches:
+            self.amend(branch, edited)
+
+        self.console.summary(len(self.updated), len(branches))
+        self.print_push_hint()
+
+
+def main(argv: List[str]) -> int:
+    console = Console()
+    git = Git()
+    try:
+        git.require_repository()
+        branches = parse_branches(argv)
+        if not branches:
+            print(HELP, end="")
+            return 1
+        EditMessage(console, git).run(branches)
+    except PortError as error:
+        console.error(str(error))
+        return 1
     return 0
-  fi
 
-  log_error "HEAD commit subjects do not match across the provided branches. Aborting."
-  for branch in "$@"; do
-    print_item "$branch" "mismatch" "$RED" "✗" "$RED" "$(head_subject "$branch")"
-  done
-  exit 1
-}
 
-run_git_editor() {
-  local file="$1"
-  local editor_cmd
-
-  editor_cmd="$(git var GIT_EDITOR)" || die "Could not determine the Git editor."
-  [[ -n "$editor_cmd" ]] || die "git did not return an editor command."
-
-  EDIT_TARGET="$file" EDITOR_CMD="$editor_cmd" \
-    sh -c 'eval "$EDITOR_CMD \"\$EDIT_TARGET\""' || die "Editor exited with a non-zero status."
-}
-
-normalize_message_file() {
-  local input_file="$1"
-  local output_file="$2"
-
-  git stripspace < "$input_file" > "$output_file"
-  [[ -s "$output_file" ]] || die "Commit message cannot be empty."
-}
-
-show_banner() {
-  local target_repo="$1"
-
-  local title="${GREY}>_${RESET} ${BOLD_WHITE}git${RESET} ${PURPLE}›${RESET} ${BOLD_WHITE}amend${RESET} ${PURPLE}›${RESET} ${BOLD_WHITE}message${RESET}"
-
-  print_header "$title" \
-    "repo:   " "$target_repo" \
-    "subject:" "$MATCHING_SUBJECT"
-}
-
-amend_branch_message() {
-  local branch="$1"
-  local message_file="$2"
-  local rewritten_commit
-
-  ensure_clean_worktree
-
-  if ! git switch "$branch" >/dev/null 2>&1; then
-    die "Could not switch to branch $(format_branch "$branch")."
-  fi
-
-  if ! git commit --amend -F "$message_file" >/dev/null; then
-    die "Could not amend the HEAD commit message on $(format_branch "$branch")."
-  fi
-
-  rewritten_commit="$(git rev-parse --verify HEAD)"
-  UPDATED_BRANCHES+=("$branch")
-  print_item "$branch" "amended" "$GREEN" "✓" "$GREEN"
-}
-
-print_push_hint() {
-  local branch
-
-  [[ ${#UPDATED_BRANCHES[@]} -gt 0 ]] || return 0
-
-  printf '  %spush:%s  git push origin' "$GREY" "$RESET"
-  for branch in "${UPDATED_BRANCHES[@]}"; do
-    printf ' %s' "$(format_branch "$branch")"
-  done
-  printf '\n'
-}
-
-main() {
-  local branches=()
-  local target_repo
-  local edit_file
-  local original_file
-  local final_file
-  local first_branch
-  local branch
-
-  trap cleanup_temp_files EXIT
-
-  require_git_repo
-  parse_args "$@"
-
-  if [[ ${#POSITIONAL[@]} -lt 1 ]]; then
-    print_help
-    exit 1
-  fi
-
-  branches=("${POSITIONAL[@]}")
-  first_branch="${branches[0]}"
-
-  ensure_clean_worktree
-  validate_local_branches "${branches[@]}"
-  init_item_widths "${branches[@]}"
-  verify_matching_subjects "${branches[@]}"
-
-  target_repo="$(git rev-parse --show-toplevel)"
-
-  show_banner "$target_repo"
-
-  original_file="$(mktemp)"
-  track_temp_file "$original_file"
-  edit_file="$(mktemp)"
-  track_temp_file "$edit_file"
-  final_file="$(mktemp)"
-  track_temp_file "$final_file"
-
-  head_message "$first_branch" > "$edit_file"
-  normalize_message_file "$edit_file" "$original_file"
-
-  run_git_editor "$edit_file"
-  normalize_message_file "$edit_file" "$final_file"
-
-  if cmp -s "$original_file" "$final_file"; then
-    log_info "Commit message unchanged. No branches were updated."
-    exit 0
-  fi
-
-  for branch in "${branches[@]}"; do
-    amend_branch_message "$branch" "$final_file"
-  done
-
-  print_summary "${#UPDATED_BRANCHES[@]}" "${#branches[@]}" 0
-  print_push_hint
-}
-
-main "$@"
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
