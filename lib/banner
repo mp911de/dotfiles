@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# Rainbow banner in the spirit of the oh-my-zsh updater.
+# The rainbow anchors are interpolated per column into a smooth gradient.
+print_banner() {
+    local -a art=(
+        '       __        __   ____ _  __'
+        '  ____/ /____   / /_ / __/(_)/ /___   _____'
+        ' / __  // __ \ / __// /_ / // // _ \ / ___/'
+        '/ /_/ // /_/ // /_ / __// // //  __/(__  )'
+        '\__,_/ \____/ \__//_/  /_//_/ \___//____/'
+    )
+    local -a anchors=(
+        '255 0 0'    # red
+        '255 97 0'   # orange
+        '247 255 0'  # yellow
+        '0 255 30'   # green
+        '0 255 255'  # cyan
+        '77 0 255'   # indigo
+        '168 0 255'  # purple
+        '245 0 172'  # pink
+    )
+    local reset=$'\033[0m'
+    local segs=$(( ${#anchors[@]} - 1 ))
+
+    local row width=0
+    for row in "${art[@]}"; do
+        (( ${#row} > width )) && width=${#row}
+    done
+
+    local out col ch t seg frac r1 g1 b1 r2 g2 b2 r g b
+    for row in "${art[@]}"; do
+        out=""
+        for (( col = 0; col < ${#row}; col++ )); do
+            ch="${row:col:1}"
+            if [[ "$ch" == " " ]]; then
+                out+=" "
+                continue
+            fi
+            # position along the gradient in thousandths of a segment
+            t=$(( col * segs * 1000 / (width - 1) ))
+            seg=$(( t / 1000 ))
+            (( seg >= segs )) && seg=$(( segs - 1 ))
+            frac=$(( t - seg * 1000 ))
+            read -r r1 g1 b1 <<< "${anchors[seg]}"
+            read -r r2 g2 b2 <<< "${anchors[seg + 1]}"
+            r=$(( r1 + (r2 - r1) * frac / 1000 ))
+            g=$(( g1 + (g2 - g1) * frac / 1000 ))
+            b=$(( b1 + (b2 - b1) * frac / 1000 ))
+            out+=$'\033[38;2;'"${r};${g};${b}m${ch}"
+        done
+        printf '%s%s\n' "$out" "$reset"
+    done
+    printf '\n'
+}
