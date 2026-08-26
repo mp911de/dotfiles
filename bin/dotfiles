@@ -21,8 +21,6 @@ cd ${DOTFILES_DIRECTORY}
 source ./lib/help
 source ./lib/utils
 source ./lib/link
-source ./lib/brew
-source ./lib/devtools
 source ${DOTFILES_DIRECTORY}/devtools
 
 # Help text
@@ -105,9 +103,15 @@ fi
 if [[ $no_packages ]]; then
     e_warning "Skipped package installations."
 else
-    e_header "Installing homebrew packages ..."
-    run_brew
-    run_devtools
+    e_header "Installing Homebrew packages..."
+    if brew bundle install --file="${DOTFILES_DIRECTORY}/Brewfile"; then
+        e_success "Done"
+    else
+        e_warning "brew bundle reported failures"
+    fi
+    brew cleanup
+
+    bash "${DOTFILES_DIRECTORY}/bin/devtools"
 fi
 
 # Existing local files are skipped unless --force is given
