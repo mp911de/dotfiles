@@ -5,5 +5,3 @@
 
 # added by travis gem
 [ -f /Users/mark/.travis/travis.sh ] && source /Users/mark/.travis/travis.sh
-
-export PATH="$PATH:$HOME/.rvm/bin" # Add RVM to PATH for scripting
