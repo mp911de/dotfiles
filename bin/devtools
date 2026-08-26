@@ -1,7 +1,7 @@
 #!/bin/bash
 
 DOTFILES_DIRECTORY="${HOME}/.dotfiles"
-DOTFILES_TARBALL_PATH="https://github.com/mp911de/dotfiles/tarball/master"
+DOTFILES_TARBALL_PATH="https://github.com/mp911de/dotfiles/tarball/main"
 DOTFILES_GIT_REMOTE="https://github.com/mp911de/dotfiles"
 
 # If missing, download and extract the dotfiles repository
