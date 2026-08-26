@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# Force create/replace the symlink.
+link() {
+    ln -fs "${DOTFILES_DIRECTORY}/${1}" "${HOME}/${2}"
+}
+
+# Create the necessary symbolic links between the `.dotfiles` and `HOME`
+# directory. The `bash_profile` sources other files directly from the
+# `.dotfiles` repository.
+link_dotfiles() {
+    link "bash/bashrc"       ".bashrc"
+    link "bash/bash_profile" ".bash_profile"
+    link "bash/inputrc"      ".inputrc"
+    link "bash/hushlogin"    ".hushlogin"
+    link "git/gitattributes" ".gitattributes"
+    link "git/gitignore"     ".gitignore"
+    link "devtools"          ".devtools"
+}
+
+# Copy `.gitconfig`.
+# Any global git commands in `~/.bash_profile.local` will be written to
+# `.gitconfig`. This prevents them from being committed to the repository.
+mirrorfiles() {
+    rsync -avz --quiet ${DOTFILES_DIRECTORY}/git/gitconfig  ${HOME}/.gitconfig
+    link_dotfiles
+    e_success "Dotfiles update complete!"
+}
