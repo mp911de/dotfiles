@@ -1,0 +1,40 @@
+#!/bin/bash
+
+set -euo pipefail
+
+readonly CASK="MyCometG3/qlstephenswift/qlstephenswift"
+readonly APP="/Applications/QLStephenSwift.app"
+readonly QUICK_LOOK_SETTINGS="x-apple.systempreferences:com.apple.LoginItems-Settings.extension?extensionPointIdentifier=com.apple.quicklook.preview"
+
+if [[ "$(uname -s)" != "Darwin" ]]; then
+    printf 'QLStephenSwift requires macOS.\n' >&2
+    exit 1
+fi
+
+if ! command -v brew >/dev/null 2>&1; then
+    printf 'Homebrew is required: https://brew.sh\n' >&2
+    exit 1
+fi
+
+if brew list --cask qlstephenswift >/dev/null 2>&1; then
+    printf 'QLStephenSwift is already installed.\n'
+else
+    brew install --cask "${CASK}"
+fi
+
+open -a QLStephenSwift
+
+if [[ -d "${APP}/Contents/PlugIns/QLStephenSwiftPreview.appex" ]]; then
+    pluginkit -a "${APP}/Contents/PlugIns/QLStephenSwiftPreview.appex"
+fi
+
+printf '\nEnable QLStephenSwift Extension in:\n'
+printf 'System Settings > Privacy & Security > Extensions > Quick Look\n\n'
+open "${QUICK_LOOK_SETTINGS}"
+read -r -p 'Press Return after enabling the extension to continue... '
+
+qlmanage -r
+qlmanage -r cache
+killall Finder || true
+
+printf '\nQLStephenSwift is installed and Quick Look has been refreshed.\n'
