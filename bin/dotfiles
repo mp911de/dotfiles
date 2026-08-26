@@ -157,7 +157,10 @@ e_header "Installing custom software ..."
 
 printf "The sudo password is needed to add brewed bash to /etc/shells and enable htop ..."
 
-sudo bash -c "echo \"/usr/local/bin/bash\" >> /etc/shells"
+brewed_bash="$(brew --prefix)/bin/bash"
+if [[ -x $brewed_bash ]] && ! grep -qxF "$brewed_bash" /etc/shells; then
+    sudo bash -c "echo \"$brewed_bash\" >> /etc/shells"
+fi
 
 # Ask before potentially overwriting OS X defaults
 seek_confirmation "Warning: This step may modify your OS X system defaults."

@@ -1,6 +1,7 @@
 # Directories to be prepended to PATH
 dirs_to_prepend=(
     "/usr/local/bin" # Ensure that this bin always takes precedence over `/usr/bin`
+    "/opt/homebrew/bin" # Apple Silicon Homebrew must take precedence over `/usr/bin`
 )
 
 # Directories to be appended to PATH
@@ -14,7 +15,6 @@ dirs_to_append=(
     "${mongodb_tools_directory}/bin"
     "${redis_directory}/src"
     "/usr/local/mysql/bin"
-    "/opt/homebrew/bin"
     "${BREW_COREUTILS_DIR}/libexec/gnubin" # Add brew-installed GNU core utilities bin
 )
 

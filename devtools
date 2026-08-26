@@ -10,7 +10,13 @@ MAVEN_VERSION=3.9.16
 MONGODB_VERSION=8.2.2
 MONGODB_TOOLS_VERSION=2.5.10
 REDIS_VERSION=7.2.1
-BREW_COREUTILS_DIR=/usr/local/opt/coreutils
+# Pick the Homebrew coreutils location by architecture. Test directories
+# directly, `brew --prefix` is too slow for a file sourced on every shell start.
+if [[ -d /opt/homebrew/opt/coreutils ]]; then
+    BREW_COREUTILS_DIR=/opt/homebrew/opt/coreutils
+else
+    BREW_COREUTILS_DIR=/usr/local/opt/coreutils
+fi
 
 maven_directory="$DEVTOOLS_HOME/apache-maven-$MAVEN_VERSION"
 mongodb_directory="$DEVTOOLS_HOME/mongodb-macos-${UNAME_A}-${MONGODB_VERSION}"
