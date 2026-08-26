@@ -1,3 +1,4 @@
 bin/vault
 bin/central
 __pycache__/
+.DS_Store
