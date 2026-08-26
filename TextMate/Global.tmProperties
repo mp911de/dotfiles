@@ -1,0 +1,26 @@
+# Version 1.0 -- Generated content!
+fontSize         = 14
+showIndentGuides = false
+showInvisibles   = true
+showWrapColumn   = false
+softTabs         = true
+tabSize          = 2
+
+[ *.md ]
+fileType         = text.html.markdown
+
+[ source ]
+showInvisibles   = true
+softTabs         = true
+tabSize          = 2
+
+[ source.shell ]
+showInvisibles   = true
+softTabs         = true
+tabSize          = 2
+
+[ text ]
+showInvisibles   = false
+
+[ text.plain ]
+showInvisibles   = false
