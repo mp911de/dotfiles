@@ -27,18 +27,6 @@ run_brew() {
             fi
         done
 
-
-        # Uninstall previous versions to make sure we're using --HEAD
-
-        #if formula_exists "ruby-install"; then brew uninstall ruby-install; fi
-        #brew install ruby-install --HEAD
-
-        #if formula_exists "chruby"; then brew uninstall chruby; fi
-        #brew install chruby --HEAD
-
-        #if formula_exists "gem_home"; then brew uninstall gem_home; fi
-        #brew install --HEAD https://raw.github.com/postmodern/gem_home/master/homebrew/gem_home.rb
-
         # Support installing applications that are distributed as binaries.
         brew list --cask sourcetree &>/dev/null || brew install --cask sourcetree
 

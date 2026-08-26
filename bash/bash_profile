@@ -13,11 +13,6 @@ load_dotfiles() {
         $HOME/.dotfiles/bash/bash_paths       # Path modifications (must source after `.bash_profile.local` in case of custom `brew` location)
     )
 
-    #        /usr/local/share/chruby/chruby.sh     # Enable postmodern/chruby
-    #        /usr/local/share/chruby/auto.sh       # Enable autoswitching of rubies
-    #        /usr/local/share/gem_home/gem_home.sh # Support changing $GEM_HOME
-
-
     # if these files are readable, source them
     for index in ${!files[*]}
     do
@@ -44,7 +39,6 @@ fi
 load_dotfiles
 unset load_dotfiles
 
-[[ -s "$HOME/.rvm/scripts/rvm" ]] && source "$HOME/.rvm/scripts/rvm" # Load RVM into a shell session *as a function*
 # added by Miniconda2 4.7.12 installer
 # >>> conda init >>>
 # !! Contents within this block are managed by 'conda init' !!

@@ -22,7 +22,6 @@ source ./lib/help
 source ./lib/utils
 source ./lib/brew
 source ./lib/devtools
-source ./lib/ruby
 source ${DOTFILES_DIRECTORY}/devtools
 
 # Help text
@@ -58,12 +57,6 @@ link_dotfiles() {
     link "bash/hushlogin"    ".hushlogin"
     link "git/gitattributes" ".gitattributes"
     link "git/gitignore"     ".gitignore"
-    link "ackrc"             ".ackrc"
-    link "aprc"              ".aprc"
-    link "gemrc"             ".gemrc"
-    link "irbrc"             ".irbrc"
-    link "pryrc"             ".pryrc"
-    link "ruby-version"      ".ruby-version"
     link "devtools"          ".devtools"
 
 }
