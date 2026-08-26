@@ -1,0 +1,8 @@
+# Prompt tweaks on top of oh-my-zsh's agnoster theme.
+# Sourced after oh-my-zsh.sh so these function overrides win over the theme.
+# Keep ~/.oh-my-zsh pristine; all customization lives here.
+
+# Dir segment: show only the last path component instead of the full path
+prompt_dir() {
+    prompt_segment "$AGNOSTER_DIR_BG" "$AGNOSTER_DIR_FG" '%1~'
+}

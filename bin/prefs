@@ -57,8 +57,19 @@ link_pref() {
     fi
 }
 
+# zshrc requires oh-my-zsh; keep the clone pristine, customizations live in this repo
+if [[ ! -d "${HOME}/.oh-my-zsh" ]]; then
+    e_header "Installing oh-my-zsh..."
+    if git clone https://github.com/ohmyzsh/ohmyzsh.git "${HOME}/.oh-my-zsh"; then
+        e_success "Done"
+    else
+        e_error "Failed to clone oh-my-zsh"
+    fi
+fi
+
 e_header "Linking preferences..."
 
+link_pref "${DOTFILES}/zsh/zshrc" "${HOME}/.zshrc"
 link_pref "${DOTFILES}/ghostty" "${HOME}/.config/ghostty"
 link_pref "${DOTFILES}/ghostty/com.mitchellh.ghostty" "${HOME}/Library/Application Support/com.mitchellh.ghostty"
 link_pref "${DOTFILES}/TextMate/Bundles" "${HOME}/Library/Application Support/TextMate/Bundles"

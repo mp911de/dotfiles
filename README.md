@@ -29,7 +29,8 @@ in the two variables at the top of `bin/dotfiles`.
     </tr>
     <tr>
         <td><code>prefs</code></td>
-        <td>Symlink application preferences into place. Idempotent. With
+        <td>Symlink application preferences and <code>~/.zshrc</code> into
+            place, install oh-my-zsh if missing. Idempotent. With
             <code>-f</code>/<code>--force</code> existing local files are
             replaced (repo wins); without it they are left alone.</td>
     </tr>
@@ -70,6 +71,19 @@ place: Ghostty (`~/.config/ghostty` and its Application Support directory)
 and TextMate (`Bundles` and `Global.tmProperties`). TextMate app-level
 preferences (`com.macromates.TextMate.plist`) are intentionally not synced;
 symlinking plists is unreliable because cfprefsd caches them.
+
+## zsh
+
+`bin/prefs` links `~/.zshrc` and clones [oh-my-zsh](https://github.com/ohmyzsh/ohmyzsh)
+if missing. The clone stays pristine so `omz update` always fast-forwards;
+customizations live in this repository instead:
+
+* `zsh/zsh_prompt` overrides agnoster theme functions after oh-my-zsh has
+  loaded. Add further prompt tweaks there, never patch `~/.oh-my-zsh`.
+* Plugins and options are configured in `zsh/zsh_plugins` and `zsh/zsh_options`.
+
+The agnoster prompt needs powerline glyphs; Ghostty covers them with its
+built-in Nerd Font fallback, no font install required.
 
 ## Acknowledgements
 
