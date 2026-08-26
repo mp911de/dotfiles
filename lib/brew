@@ -23,7 +23,7 @@ run_brew() {
                 # Store the name (and options) of every missing formula
                 e_header "Installing missing ${desired_formulae[$index]}..."
                 brew install ${desired_formulae[$index]}
-                [[ $? ]] && e_success "Done"
+                [[ $? -eq 0 ]] && e_success "Done"
             fi
         done
 

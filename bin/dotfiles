@@ -53,11 +53,11 @@ fi
 if type_exists 'brew'; then
   e_header "Updating Homebrew..."
   brew update
-  [[ $? ]] && e_success "Done"
+  [[ $? -eq 0 ]] && e_success "Done"
 
   e_header "Updating any existing Homebrew formulae..."
   brew upgrade
-  [[ $? ]] && e_success "Done"
+  [[ $? -eq 0 ]] && e_success "Done"
 else
     e_header "Installing Homebrew..."
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
