@@ -64,7 +64,7 @@ defaults write com.apple.finder FXInfoPanesExpanded -dict \
 # Kill affected applications                                                  #
 ###############################################################################
 
-for app in "cfprefsd" "Finder" "SystemUIServer"; do
+for app in "cfprefsd" "Finder"; do
 	killall "${app}" > /dev/null 2>&1
 done
 
