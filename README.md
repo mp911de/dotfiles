@@ -20,12 +20,14 @@ in the two variables at the top of `bin/dotfiles`.
 <table>
     <tr>
         <td><code>dotfiles</code></td>
-        <td>Full sync: pull, Homebrew packages, dev tools, symlinks, OS defaults.
-            Options: <code>--no-packages</code>, <code>--no-sync</code>.</td>
+        <td>Full sync: pull, Brewfile packages, dev tools, symlinks, OS defaults.
+            Options: <code>-f</code>/<code>--force</code>,
+            <code>--no-packages</code>, <code>--no-sync</code>.</td>
     </tr>
     <tr>
         <td><code>devtools</code></td>
-        <td>Install the pinned dev tools only (Maven, MongoDB, mongosh, Redis).</td>
+        <td>Install the pinned dev tools only (one file per tool under
+            <code>devtools.d/</code>).</td>
     </tr>
     <tr>
         <td><code>prefs</code></td>
@@ -44,25 +46,33 @@ in the two variables at the top of `bin/dotfiles`.
 
 `bin/dotfiles` symlinks `~/.bashrc`, `~/.bash_profile`, `~/.inputrc`,
 `~/.hushlogin`, `~/.gitattributes`, `~/.gitignore` and `~/.devtools` into
-this repository.
+this repository. Existing local files are skipped and reported; rerun with
+`--force` to let the repo win.
 
 `git/gitconfig` is the exception: it is copied to `~/.gitconfig` so
-machine-local git configuration (e.g. credentials) never ends up in the
-repository.
+machine-local `git config --global` writes never end up in the repository.
+Per-machine identity (work email, signing key) goes into
+`~/.gitconfig.local`, pulled in via `[include]` at the end of gitconfig so
+local values win.
 
 ## Local overrides
 
-Not under version control, sourced if present:
+Not under version control, sourced/included if present:
 
-* `~/.bash_profile.local` for private bash configuration and git credentials.
+* `~/.bash_profile.local` for private bash configuration.
 * `~/.zshrc.local` for private zsh configuration.
+* `~/.gitconfig.local` for the per-machine git identity.
 * `~/.dotfilesrc` to prepend a custom Homebrew location to the PATH.
 
-## Devtools version pins
+## Packages and dev tools
 
-The root `devtools` file pins the tool versions (`MAVEN_VERSION`,
-`MONGODB_VERSION`, `MONGODB_TOOLS_VERSION`, `REDIS_VERSION`) and is sourced
-on every shell start. Bump a version there and rerun `devtools`.
+`Brewfile` declares the Homebrew formulae and casks; `dotfiles` applies it
+with `brew bundle install`.
+
+Each tool under `devtools.d/` (Maven, MongoDB, mongosh, Redis) pins its
+version and defines its install function. The root `devtools` file holds
+shared platform variables and sources them all on shell start. Bump a
+version in `devtools.d/<tool>` and rerun `devtools`.
 
 ## Preferences
 
