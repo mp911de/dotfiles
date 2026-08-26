@@ -22,23 +22,23 @@ run_devtools() {
     if [[ ! -d "$mongodb_directory" ]]; then
         e_header "Installing missing MongoDB version ${MONGODB_VERSION}..."
         curl -sSL "https://fastdl.mongodb.org/osx/mongodb-macos-${UNAME_M}-${MONGODB_VERSION}.tgz" | tar xz -C "$DEVTOOLS_HOME"
-        cd $mongodb_directory/bin/ && chmod a+x "*"
+        chmod a+x "$mongodb_directory/bin/"*
         [[ $? ]] && e_success "Done"
     fi
 
     if [[ ! -d "$mongodb_tools_directory" ]]; then
         e_header "Installing missing MongoDB Tools version ${MONGODB_TOOLS_VERSION}..."
-        curl -sSL "https://downloads.mongodb.com/compass/mongosh-${MONGODB_TOOLS_VERSION}-${UNAME_O}-${UNAME_M}.zip" -o archive.zip
-		unzip archive.zip -d "$DEVTOOLS_HOME"
-		rm archive.zip
-        cd $mongodb_tools_directory/bin/ && chmod a+x "mongosh"
+        curl -sSL "https://downloads.mongodb.com/compass/mongosh-${MONGODB_TOOLS_VERSION}-${UNAME_O}-${UNAME_M}.zip" -o "$DEVTOOLS_HOME/archive.zip"
+        unzip "$DEVTOOLS_HOME/archive.zip" -d "$DEVTOOLS_HOME"
+        rm "$DEVTOOLS_HOME/archive.zip"
+        chmod a+x "$mongodb_tools_directory/bin/mongosh"
         [[ $? ]] && e_success "Done"
     fi
     
     if [[ ! -d "$redis_directory" ]]; then
-        e_header "Installing missing Redis version ${redis_version}..."            
-        cd $DEVTOOLS_HOME && git clone https://github.com/antirez/redis.git
-        cd redis && git checkout ${redis_version}
+        e_header "Installing missing Redis version ${REDIS_VERSION}..."
+        cd $DEVTOOLS_HOME && git clone https://github.com/redis/redis.git
+        cd redis && git checkout ${REDIS_VERSION}
         cd src
         make
         [[ $? ]] && e_success "Done"
