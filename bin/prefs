@@ -1,9 +1,65 @@
-DOTFILES=$HOME/.dotfiles
+#!/bin/bash
 
-mkdir -p $HOME/.config
-ln -s $DOTFILES/ghostty $HOME/.config/ghostty
-ln -s $DOTFILES/ghostty/com.mitchellh.ghostty $HOME/Library/Application\ Support/com.mitchellh.ghostty
+DOTFILES="${HOME}/.dotfiles"
 
+source "${DOTFILES}/lib/utils"
 
-mkdir -p "$HOME/Library/Application Support/TextMate"
-ln -s $DOTFILES/TextMate/Bundles "$HOME/Library/Application Support/TextMate"
+run_prefs_help() {
+
+cat <<EOT
+Symlink application preferences from ${DOTFILES} into place.
+
+Usage: $(basename "$0") [options]
+
+Options:
+    -f, --force     Replace existing local files and directories (repo wins)
+    -h, --help      Print this help text
+EOT
+
+}
+
+force=false
+
+for opt in "$@"
+do
+    case $opt in
+        -f|--force) force=true ;;
+        -h|--help) run_prefs_help; exit ;;
+        *) e_warning "Warning: invalid option $opt" ;;
+    esac
+done
+
+# Symlink SRC to DEST unless DEST already points to SRC.
+# Existing real files and directories are only replaced with --force.
+link_pref() {
+    local src="$1"
+    local dest="$2"
+
+    if [[ -L "$dest" && "$(readlink "$dest")" == "$src" ]]; then
+        e_success "$dest is up to date"
+        return 0
+    fi
+
+    if [[ -L "$dest" || ! -e "$dest" ]]; then
+        mkdir -p "$(dirname "$dest")"
+        ln -sfn "$src" "$dest"
+        e_success "Linked $dest -> $src"
+        return 0
+    fi
+
+    if [[ $force == true ]]; then
+        rm -rf "$dest"
+        mkdir -p "$(dirname "$dest")"
+        ln -sfn "$src" "$dest"
+        e_success "Replaced $dest -> $src"
+    else
+        e_warning "$dest exists, skipped. Rerun with --force to let the repo win."
+    fi
+}
+
+e_header "Linking preferences..."
+
+link_pref "${DOTFILES}/ghostty" "${HOME}/.config/ghostty"
+link_pref "${DOTFILES}/ghostty/com.mitchellh.ghostty" "${HOME}/Library/Application Support/com.mitchellh.ghostty"
+link_pref "${DOTFILES}/TextMate/Bundles" "${HOME}/Library/Application Support/TextMate/Bundles"
+link_pref "${DOTFILES}/TextMate/Global.tmProperties" "${HOME}/Library/Application Support/TextMate/Global.tmProperties"
