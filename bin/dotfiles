@@ -132,6 +132,14 @@ if [[ -x $brewed_bash ]] && ! grep -qxF "$brewed_bash" /etc/shells; then
     sudo bash -c "echo \"$brewed_bash\" >> /etc/shells"
 fi
 
+# QLStephenSwift is an interactive wizard (System Settings involved),
+# so only run it while the cask is missing
+if brew list --cask qlstephenswift &> /dev/null; then
+    e_success "QLStephenSwift installed"
+else
+    bash "${DOTFILES_DIRECTORY}/bin/quicklook"
+fi
+
 # Ask before potentially overwriting OS X defaults
 seek_confirmation "Warning: This step may modify your OS X system defaults."
 

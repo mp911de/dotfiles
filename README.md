@@ -40,6 +40,11 @@ in the two variables at the top of `bin/dotfiles`.
         <td><code>osxprops</code></td>
         <td>Apply custom macOS defaults (also offered by <code>dotfiles</code>).</td>
     </tr>
+    <tr>
+        <td><code>quicklook</code></td>
+        <td>Install the QLStephenSwift Quick Look extension (interactive;
+            <code>dotfiles</code> runs it when missing).</td>
+    </tr>
 </table>
 
 ## Symlinked vs copied
