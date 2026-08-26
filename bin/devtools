@@ -4,15 +4,24 @@ DOTFILES_DIRECTORY="${HOME}/.dotfiles"
 
 cd ${DOTFILES_DIRECTORY}
 
-source ./lib/help
 source ./lib/utils
-source ./lib/devtools
-source ${DOTFILES_DIRECTORY}/devtools
+source ./devtools
 
-# Help text
 if [[ "$1" == "-h" || "$1" == "--help" ]]; then
-    run_help
+    cat <<EOT
+Install the pinned dev tools into ${DEVTOOLS_HOME}.
+
+Each tool under devtools.d/ pins its version and defines an install
+function; already installed versions are skipped.
+
+Usage: $(basename "$0")
+EOT
     exit
 fi
 
-run_devtools
+mkdir -p "$DEVTOOLS_HOME"
+
+e_header "Checking status of desired tools..."
+for installer in $(compgen -A function | grep '^install_'); do
+    "$installer"
+done

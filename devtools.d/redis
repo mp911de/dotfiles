@@ -1,0 +1,14 @@
+# Redis, built from source.
+
+REDIS_VERSION=7.2.1
+redis_directory="$DEVTOOLS_HOME/redis"
+
+install_redis() {
+    if [[ ! -d "$redis_directory" ]]; then
+        e_header "Installing missing Redis version ${REDIS_VERSION}..."
+        git clone https://github.com/redis/redis.git "$redis_directory" \
+            && git -C "$redis_directory" checkout "${REDIS_VERSION}" \
+            && make -C "$redis_directory/src" \
+            && e_success "Done"
+    fi
+}

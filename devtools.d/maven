@@ -1,0 +1,13 @@
+# Apache Maven, installed from the binary distribution.
+
+MAVEN_VERSION=3.9.16
+maven_directory="$DEVTOOLS_HOME/apache-maven-$MAVEN_VERSION"
+
+install_maven() {
+    if [[ ! -d "$maven_directory" ]]; then
+        e_header "Installing missing Maven version ${MAVEN_VERSION}..."
+        curl -sSL "https://repo1.maven.org/maven2/org/apache/maven/apache-maven/${MAVEN_VERSION}/apache-maven-${MAVEN_VERSION}-bin.tar.gz" | tar xz -C "$DEVTOOLS_HOME" \
+            && chmod a+x "$maven_directory/bin/mvn" "$maven_directory/bin/mvnDebug" \
+            && e_success "Done"
+    fi
+}
