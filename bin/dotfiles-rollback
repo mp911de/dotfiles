@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+source "$HOME/.dotfiles/lib/common"
+
+if [[ -z $1 || $1 == -h || $1 == --help ]]; then
+    printf 'Usage: %s <backup>\n\nRestore the dotfiles replaced by a previous dotfiles or prefs run.\n' "$(basename "$0")"
+    log_header "Available backups in $DOTFILES_BACKUPS"
+    ls -1d "$DOTFILES_BACKUPS"/dotfiles-* 2>/dev/null | xargs -n1 basename
+    exit 1
+fi
+
+backup=$1
+[[ -d $backup ]] || backup="$DOTFILES_BACKUPS/$1"
+if [[ ! -f $backup/manifest ]]; then
+    log_error "No backup at $backup"
+    exit 1
+fi
+
+log_header "Restoring from $backup..."
+while IFS= read -r dest; do
+    [[ -L $dest ]] && rm "$dest"
+    if [[ -e $dest ]]; then
+        log_warning "$dest is not a dotfiles symlink anymore, skipped"
+    elif [[ -e $backup$dest || -L $backup$dest ]]; then
+        mv "$backup$dest" "$dest" && log_success "Restored $dest"
+    else
+        log_success "Removed $dest"
+    fi
+done < "$backup/manifest"

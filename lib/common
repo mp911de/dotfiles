@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+
+DOTFILES="${DOTFILES:-$HOME/.dotfiles}"
+DOTFILES_BACKUPS="${TMPDIR:-/tmp/}"
+DOTFILES_BACKUPS="${DOTFILES_BACKUPS%/}"
+
+if [[ -z $DOTFILES_BACKUP ]]; then
+    export DOTFILES_BACKUP="$DOTFILES_BACKUPS/dotfiles-$(date +%Y%m%d-%H%M%S)"
+    DOTFILES_BACKUP_OWNER=true
+fi
+
+log_header()  { printf "\n$(tput setaf 7)%s$(tput sgr0)\n" "$@"; }
+log_success() { printf "$(tput setaf 64)✓ %s$(tput sgr0)\n" "$@"; }
+log_error()   { printf "$(tput setaf 1)x %s$(tput sgr0)\n" "$@"; }
+log_warning() { printf "$(tput setaf 136)! %s$(tput sgr0)\n" "$@"; }
+
+confirm() {
+    printf '\n'
+    log_warning "$1"
+    read -r -p "Continue? (y/n) " -n 1
+    printf '\n'
+    [[ $REPLY == [Yy] ]]
+}
+
+remember() {
+    mkdir -p "$DOTFILES_BACKUP"
+    printf '%s\n' "$1" >> "$DOTFILES_BACKUP/manifest"
+}
+
+backup() {
+    mkdir -p "$(dirname "$DOTFILES_BACKUP$1")"
+    mv "$1" "$DOTFILES_BACKUP$1"
+}
+
+link_file() {
+    local src=$1 dest=$2
+
+    if [[ -L $dest && $(readlink "$dest") == "$src" ]]; then
+        log_success "$dest is up to date"
+        return 0
+    fi
+
+    if [[ -e $dest || -L $dest ]]; then
+        if [[ ! -L $dest && $DOTFILES_FORCE != true ]]; then
+            log_warning "$dest exists, skipped. Rerun with --force or DOTFILES_FORCE=true to overwrite."
+            return 0
+        fi
+        remember "$dest"
+        backup "$dest"
+    else
+        remember "$dest"
+    fi
+
+    mkdir -p "$(dirname "$dest")"
+    ln -s "$src" "$dest"
+    log_success "Linked $dest -> $src"
+}
+
+report_backup() {
+    [[ $DOTFILES_BACKUP_OWNER == true && -d $DOTFILES_BACKUP ]] || return 0
+    log_header "Replaced files were moved to $DOTFILES_BACKUP"
+    printf 'Undo with: dotfiles-rollback %s\n' "$(basename "$DOTFILES_BACKUP")"
+}

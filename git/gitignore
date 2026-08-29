@@ -20,7 +20,6 @@ Thumbs.db
 *.sw?
 *.vi
 *.gem
-.testrc
 .sdkmanrc
 gradle-enterprise-workspace-id
 .cursor/
@@ -31,12 +30,10 @@ CONTEXT.md
 .claude
 .scratch/
 .codex
-.agents
 SPEC.md
 specs/
 .arch-loop/
 .spec-loop/
-specs/
 .aiassistant
 .mvn/.develocity/
 *.iml

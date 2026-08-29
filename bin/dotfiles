@@ -1,151 +1,102 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-DOTFILES_DIRECTORY="${HOME}/.dotfiles"
-DOTFILES_TARBALL_PATH="https://github.com/mp911de/dotfiles/tarball/main"
-DOTFILES_GIT_REMOTE="https://github.com/mp911de/dotfiles"
+DOTFILES="$HOME/.dotfiles"
+DOTFILES_REMOTE="https://github.com/mp911de/dotfiles"
 
-# If missing, download and extract the dotfiles repository
-if [[ ! -d ${DOTFILES_DIRECTORY} ]]; then
-    printf "$(tput setaf 7)Downloading dotfiles...\033[m\n"
-    mkdir ${DOTFILES_DIRECTORY}
-    # Get the tarball
-    curl -fsSLo ${HOME}/dotfiles.tar.gz ${DOTFILES_TARBALL_PATH}
-    # Extract to the dotfiles directory
-    tar -zxf ${HOME}/dotfiles.tar.gz --strip-components 1 -C ${DOTFILES_DIRECTORY}
-    # Remove the tarball
-    rm -rf ${HOME}/dotfiles.tar.gz
-fi
+usage() {
+cat <<EOT
+macOS dotfiles - Mark Paluch - $DOTFILES_REMOTE
 
-cd ${DOTFILES_DIRECTORY}
+Usage: $(basename "$0") [options]
 
-source ./lib/help
-source ./lib/utils
-source ./lib/link
-source ./lib/banner
-source ${DOTFILES_DIRECTORY}/devtools
+Options:
+    -h, --help      Print this help text
+    -f, --force     Replace existing local files (repo wins), same as DOTFILES_FORCE=true
+    --no-packages   Skip Homebrew and dev tool installation
+    --no-sync       Skip pulling from the remote repository
 
-# Help text
-if [[ "$1" == "-h" || "$1" == "--help" ]]; then
-    run_help
-    exit
-fi
+Replaced files are moved to a backup directory, undo with dotfiles-rollback.
+EOT
+}
 
-# Test for known flags
-force=false
-for opt in $@
-do
+for opt in "$@"; do
     case $opt in
-        -f|--force) force=true ;;
+        -h|--help) usage; exit ;;
+        -f|--force) export DOTFILES_FORCE=true ;;
         --no-packages) no_packages=true ;;
         --no-sync) no_sync=true ;;
-        -*|--*) e_warning "Warning: invalid option $opt" ;;
+        *) printf 'Unknown option %s\n\n' "$opt" >&2; usage >&2; exit 1 ;;
     esac
 done
 
-print_banner
-
-# Before relying on Homebrew, check that packages can be compiled
-if ! type_exists 'gcc'; then
-    e_error "The XCode Command Line Tools must be installed first."
-    printf "  Download them from: https://developer.apple.com/downloads\n"
-    printf "  Then run: bash ~/.dotfiles/bin/dotfiles\n"
+if ! xcode-select -p &>/dev/null; then
+    printf 'Xcode Command Line Tools are required. Run: xcode-select --install\n' >&2
     exit 1
 fi
 
-# Check for Homebrew
-if type_exists 'brew'; then
-  e_header "Updating Homebrew..."
-  brew update
-  [[ $? -eq 0 ]] && e_success "Done"
+[[ -d $DOTFILES ]] || git clone "$DOTFILES_REMOTE" "$DOTFILES" || exit 1
+cd "$DOTFILES" || exit 1
 
-  e_header "Updating any existing Homebrew formulae..."
-  brew upgrade
-  [[ $? -eq 0 ]] && e_success "Done"
-else
-    e_header "Installing Homebrew..."
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+source lib/common
+source lib/banner
+print_banner
 
-    # brew is not on the PATH yet right after installation
-    if [[ -x /opt/homebrew/bin/brew ]]; then
-        eval "$(/opt/homebrew/bin/brew shellenv)"
-    elif [[ -x /usr/local/bin/brew ]]; then
-        eval "$(/usr/local/bin/brew shellenv)"
-    fi
-fi
-
-# Check for git
-if ! type_exists 'git'; then
-    e_header "Installing Git..."
-    brew install git
-fi
-
-# Initialize the git repository if it's missing
-if ! is_git_repo; then
-    e_header "Initializing git repository..."
-    git init
-    git remote add origin ${DOTFILES_GIT_REMOTE}
-    git fetch origin main
-    # Reset the index and working tree to the fetched HEAD
-    # (submodules are cloned in the subsequent sync step)
-    git reset --hard FETCH_HEAD
-    # Remove any untracked files
-    git clean -fd
-fi
-
-# Conditionally sync with the remote repository
 if [[ $no_sync ]]; then
-    printf "Skipped dotfiles sync.\n"
+    log_warning "Skipped dotfiles sync"
 else
-    e_header "Syncing dotfiles..."
-
-    # Pull down the latest changes
+    log_header "Syncing dotfiles..."
     git pull --rebase origin main
 fi
 
-# Install and update packages
 if [[ $no_packages ]]; then
-    e_warning "Skipped package installations."
+    log_warning "Skipped package installation"
 else
-    e_header "Installing Homebrew packages..."
-    if brew bundle install --file="${DOTFILES_DIRECTORY}/Brewfile"; then
-        e_success "Done"
+    if command -v brew &>/dev/null; then
+        log_header "Updating Homebrew..."
+        brew update && brew upgrade
     else
-        e_warning "brew bundle reported failures"
+        log_header "Installing Homebrew..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        if [[ -x /opt/homebrew/bin/brew ]]; then
+            eval "$(/opt/homebrew/bin/brew shellenv)"
+        elif [[ -x /usr/local/bin/brew ]]; then
+            eval "$(/usr/local/bin/brew shellenv)"
+        fi
     fi
+
+    log_header "Installing Homebrew packages..."
+    brew bundle install --file=Brewfile || log_warning "brew bundle reported failures"
     brew cleanup
 
-    bash "${DOTFILES_DIRECTORY}/bin/devtools"
+    bin/devtools
 fi
 
-# Existing local files are skipped unless --force is given
-e_header "Linking dotfiles..."
-link_dotfiles
-source ${HOME}/.bash_profile
+log_header "Linking dotfiles..."
+link_file "$DOTFILES/bash/bashrc"       "$HOME/.bashrc"
+link_file "$DOTFILES/bash/bash_profile" "$HOME/.bash_profile"
+link_file "$DOTFILES/bash/inputrc"      "$HOME/.inputrc"
+link_file "$DOTFILES/bash/hushlogin"    "$HOME/.hushlogin"
+link_file "$DOTFILES/git/gitattributes" "$HOME/.gitattributes"
+link_file "$DOTFILES/git/gitconfig"     "$HOME/.gitconfig"
+link_file "$DOTFILES/git/gitignore"     "$HOME/.gitignore"
+link_file "$DOTFILES/devtools"          "$HOME/.devtools"
 
-# Must happen after dotfiles have been synced and sourced
-e_header "Installing custom software ..."
+bin/prefs
 
-printf "The sudo password is needed to add brewed bash to /etc/shells…"
-
-brewed_bash="$(brew --prefix)/bin/bash"
-if [[ -x $brewed_bash ]] && ! grep -qxF "$brewed_bash" /etc/shells; then
-    sudo bash -c "echo \"$brewed_bash\" >> /etc/shells"
+if command -v brew &>/dev/null; then
+    brewed_bash="$(brew --prefix)/bin/bash"
+    if [[ -x $brewed_bash ]] && ! grep -qxF "$brewed_bash" /etc/shells; then
+        log_header "Adding $brewed_bash to /etc/shells (needs sudo)..."
+        sudo sh -c "echo '$brewed_bash' >> /etc/shells"
+    fi
+    brew list --cask qlstephenswift &>/dev/null || bin/quicklook
 fi
 
-# QLStephenSwift is an interactive wizard (System Settings involved),
-# so only run it while the cask is missing
-if brew list --cask qlstephenswift &> /dev/null; then
-    e_success "QLStephenSwift installed"
+if confirm "The next step modifies macOS system defaults."; then
+    bin/osxprops
+    log_success "macOS defaults applied, some changes need a restart"
 else
-    bash "${DOTFILES_DIRECTORY}/bin/quicklook"
+    log_warning "Skipped macOS defaults"
 fi
 
-# Ask before potentially overwriting OS X defaults
-seek_confirmation "Warning: This step may modify your OS X system defaults."
-
-if is_confirmed; then
-    bash $DOTFILES_DIRECTORY/bin/osxprops
-    e_success "OS X settings updated! You may need to restart."
-else
-    printf "Skipped OS X settings update.\n"
-fi
+report_backup

@@ -22,8 +22,8 @@ alias be="bundle exec"
 
 alias gp="git pull"
 alias gfu="git fetch upstream"
-alias gru="git rebase upstream/master"
-alias gmu="git merge upstream/master"
+alias gru="git rebase upstream/main"
+alias gmu="git merge upstream/main"
 alias tower="gittower ."
 
 alias cass="cd ${HOME}/git/spring-data-cassandra"

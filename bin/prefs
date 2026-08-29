@@ -1,49 +1,27 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-DOTFILES="${HOME}/.dotfiles"
+source "$HOME/.dotfiles/lib/common"
 
-source "${DOTFILES}/lib/utils"
-source "${DOTFILES}/lib/link"
-
-run_prefs_help() {
-
-cat <<EOT
-Symlink application preferences from ${DOTFILES} into place.
-
-Usage: $(basename "$0") [options]
-
-Options:
-    -f, --force     Replace existing local files and directories (repo wins)
-    -h, --help      Print this help text
-EOT
-
-}
-
-force=false
-
-for opt in "$@"
-do
+for opt in "$@"; do
     case $opt in
-        -f|--force) force=true ;;
-        -h|--help) run_prefs_help; exit ;;
-        *) e_warning "Warning: invalid option $opt" ;;
+        -f|--force) export DOTFILES_FORCE=true ;;
+        -h|--help)
+            printf 'Usage: %s [-f|--force]\n\nSymlink application preferences from %s into place.\n' "$(basename "$0")" "$DOTFILES"
+            exit ;;
+        *) log_error "Unknown option $opt"; exit 1 ;;
     esac
 done
 
-# zshrc requires oh-my-zsh; keep the clone pristine, customizations live in this repo
-if [[ ! -d "${HOME}/.oh-my-zsh" ]]; then
-    e_header "Installing oh-my-zsh..."
-    if git clone https://github.com/ohmyzsh/ohmyzsh.git "${HOME}/.oh-my-zsh"; then
-        e_success "Done"
-    else
-        e_error "Failed to clone oh-my-zsh"
-    fi
+if [[ ! -d $HOME/.oh-my-zsh ]]; then
+    log_header "Installing oh-my-zsh..."
+    git clone https://github.com/ohmyzsh/ohmyzsh.git "$HOME/.oh-my-zsh" || log_error "Failed to clone oh-my-zsh"
 fi
 
-e_header "Linking preferences..."
+log_header "Linking preferences..."
+link_file "$DOTFILES/zsh/zshrc"                    "$HOME/.zshrc"
+link_file "$DOTFILES/ghostty"                      "$HOME/.config/ghostty"
+link_file "$DOTFILES/ghostty/com.mitchellh.ghostty" "$HOME/Library/Application Support/com.mitchellh.ghostty"
+link_file "$DOTFILES/TextMate/Bundles"             "$HOME/Library/Application Support/TextMate/Bundles"
+link_file "$DOTFILES/TextMate/Global.tmProperties" "$HOME/Library/Application Support/TextMate/Global.tmProperties"
 
-link_file "${DOTFILES}/zsh/zshrc" "${HOME}/.zshrc"
-link_file "${DOTFILES}/ghostty" "${HOME}/.config/ghostty"
-link_file "${DOTFILES}/ghostty/com.mitchellh.ghostty" "${HOME}/Library/Application Support/com.mitchellh.ghostty"
-link_file "${DOTFILES}/TextMate/Bundles" "${HOME}/Library/Application Support/TextMate/Bundles"
-link_file "${DOTFILES}/TextMate/Global.tmProperties" "${HOME}/Library/Application Support/TextMate/Global.tmProperties"
+report_backup

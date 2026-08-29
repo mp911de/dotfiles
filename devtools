@@ -1,17 +1,9 @@
-# Devtools configuration, sourced on every shell start (keep it fast).
-# Version pins and install functions live in devtools.d/, one file per tool.
-
-# arm64
 UNAME_M=$(uname -m)
-# aarch64
-UNAME_A=$(uname -m | sed s/arm64/aarch64/g)
-# darwin
-UNAME_O=$(uname -o | tr '[:upper:]' '[:lower:]')
+UNAME_A=${UNAME_M/arm64/aarch64}
+UNAME_O=darwin
 
 DEVTOOLS_HOME=/Users/Shared/Entwicklung/tools
 
-# Pick the Homebrew coreutils location by architecture. Test directories
-# directly, `brew --prefix` is too slow for a file sourced on every shell start.
 if [[ -d /opt/homebrew/opt/coreutils ]]; then
     BREW_COREUTILS_DIR=/opt/homebrew/opt/coreutils
 else

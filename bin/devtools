@@ -1,27 +1,16 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-DOTFILES_DIRECTORY="${HOME}/.dotfiles"
+source "$HOME/.dotfiles/lib/common"
+source "$DOTFILES/devtools"
 
-cd ${DOTFILES_DIRECTORY}
-
-source ./lib/utils
-source ./devtools
-
-if [[ "$1" == "-h" || "$1" == "--help" ]]; then
-    cat <<EOT
-Install the pinned dev tools into ${DEVTOOLS_HOME}.
-
-Each tool under devtools.d/ pins its version and defines an install
-function; already installed versions are skipped.
-
-Usage: $(basename "$0")
-EOT
+if [[ $1 == -h || $1 == --help ]]; then
+    printf 'Usage: %s\n\nInstall the pinned dev tools from devtools.d/ into %s.\n' "$(basename "$0")" "$DEVTOOLS_HOME"
     exit
 fi
 
 mkdir -p "$DEVTOOLS_HOME"
 
-e_header "Checking status of desired tools..."
+log_header "Checking dev tools..."
 for installer in $(compgen -A function | grep '^install_'); do
     "$installer"
 done

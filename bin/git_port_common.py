@@ -275,7 +275,7 @@ class Git:
 
     Each instance is bound to a working directory (the current one by default).
     Low-level helpers (:meth:`text`, :meth:`succeeds`, :meth:`capture`,
-    :meth:`interactive`) keep the subprocess plumbing in one place; the named
+    :meth:`interactive`) keep the subprocess plumbing in one place. The named
     methods express the operations the porting commands actually need.
     """
 

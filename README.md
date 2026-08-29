@@ -5,8 +5,8 @@ and application preferences.
 
 ## Install
 
-Requires the [XCode Command Line Tools](https://developer.apple.com/downloads).
-May overwrite existing dotfiles in your HOME directory.
+Requires the Xcode Command Line Tools (`xcode-select --install`).
+Existing files are left alone unless forced, replaced files are backed up.
 
 ```bash
 $ bash -c "$(curl -fsSL https://raw.githubusercontent.com/mp911de/dotfiles/main/bin/dotfiles)"
@@ -20,9 +20,14 @@ in the two variables at the top of `bin/dotfiles`.
 <table>
     <tr>
         <td><code>dotfiles</code></td>
-        <td>Full sync: pull, Brewfile packages, dev tools, symlinks, OS defaults.
-            Options: <code>-f</code>/<code>--force</code>,
+        <td>Full sync: pull, Brewfile packages, dev tools, symlinks, preferences,
+            macOS defaults. Options: <code>-f</code>/<code>--force</code>,
             <code>--no-packages</code>, <code>--no-sync</code>.</td>
+    </tr>
+    <tr>
+        <td><code>dotfiles-rollback</code></td>
+        <td>Restore the files a previous run replaced. Without arguments it
+            lists the available backups.</td>
     </tr>
     <tr>
         <td><code>devtools</code></td>
@@ -32,9 +37,8 @@ in the two variables at the top of `bin/dotfiles`.
     <tr>
         <td><code>prefs</code></td>
         <td>Symlink application preferences and <code>~/.zshrc</code> into
-            place, install oh-my-zsh if missing. Idempotent. With
-            <code>-f</code>/<code>--force</code> existing local files are
-            replaced (repo wins); without it they are left alone.</td>
+            place, install oh-my-zsh if missing. Also run by
+            <code>dotfiles</code>.</td>
     </tr>
     <tr>
         <td><code>osxprops</code></td>
@@ -42,23 +46,24 @@ in the two variables at the top of `bin/dotfiles`.
     </tr>
     <tr>
         <td><code>quicklook</code></td>
-        <td>Install the QLStephenSwift Quick Look extension (interactive;
+        <td>Install the QLStephenSwift Quick Look extension (interactive 
             <code>dotfiles</code> runs it when missing).</td>
     </tr>
 </table>
 
-## Symlinked vs copied
+## Managed symlinks
 
 `bin/dotfiles` symlinks `~/.bashrc`, `~/.bash_profile`, `~/.inputrc`,
-`~/.hushlogin`, `~/.gitattributes`, `~/.gitignore` and `~/.devtools` into
-this repository. Existing local files are skipped and reported; rerun with
-`--force` to let the repo win.
+`~/.hushlogin`, `~/.gitattributes`, `~/.gitconfig`, `~/.gitignore` and
+`~/.devtools` into this repository. Existing local files are skipped and
+reported. Rerun with `--force` (or `DOTFILES_FORCE=true`, inherited by every
+script) overwrite. Whatever gets replaced is moved to
+`$TMPDIR/dotfiles-<date>` and `dotfiles-rollback <name>` puts it back.
 
-`git/gitconfig` is the exception: it is copied to `~/.gitconfig` so
-machine-local `git config --global` writes never end up in the repository.
-Per-machine identity (work email, signing key) goes into
-`~/.gitconfig.local`, pulled in via `[include]` at the end of gitconfig so
-local values win.
+Per-machine Git identity (work email, signing key) goes into
+`~/.gitconfig.local`, pulled in via `[include]` at the end of the managed
+gitconfig so local values win. Since `~/.gitconfig` is a symlink into this
+repository, avoid using `git config --global` for machine-local values.
 
 ## Local overrides
 
@@ -67,38 +72,25 @@ Not under version control, sourced/included if present:
 * `~/.bash_profile.local` for private bash configuration.
 * `~/.zshrc.local` for private zsh configuration.
 * `~/.gitconfig.local` for the per-machine git identity.
-* `~/.dotfilesrc` to prepend a custom Homebrew location to the PATH.
 
 ## Packages and dev tools
 
-`Brewfile` declares the Homebrew formulae and casks; `dotfiles` applies it
-with `brew bundle install`.
+`Brewfile` declares the Homebrew formulae and casks. `dotfiles` applies it with `brew bundle install`.
 
-Each tool under `devtools.d/` (Maven, MongoDB, mongosh, Redis) pins its
-version and defines its install function. The root `devtools` file holds
-shared platform variables and sources them all on shell start. Bump a
-version in `devtools.d/<tool>` and rerun `devtools`.
+Each tool under `devtools.d/` (Maven, MongoDB, mongosh, Redis) pins its version and defines its install function. The root `devtools` file holds shared platform variables and sources them all on shell start. Bump a version in `devtools.d/<tool>` and rerun `devtools`.
 
 ## Preferences
 
-`bin/prefs` symlinks application configuration from this repository into
-place: Ghostty (`~/.config/ghostty` and its Application Support directory)
-and TextMate (`Bundles` and `Global.tmProperties`). TextMate app-level
-preferences (`com.macromates.TextMate.plist`) are intentionally not synced;
-symlinking plists is unreliable because cfprefsd caches them.
+`bin/prefs` symlinks application configuration from this repository into place: Ghostty (`~/.config/ghostty` and its Application Support directory) and TextMate (`Bundles` and `Global.tmProperties`). TextMate app-level preferences (`com.macromates.TextMate.plist`) are intentionally not synced. Symlinking plists is unreliable because cfprefsd caches them.
 
 ## zsh
 
-`bin/prefs` links `~/.zshrc` and clones [oh-my-zsh](https://github.com/ohmyzsh/ohmyzsh)
-if missing. The clone stays pristine so `omz update` always fast-forwards;
-customizations live in this repository instead:
+`bin/prefs` links `~/.zshrc` and clones [oh-my-zsh](https://github.com/ohmyzsh/ohmyzsh) if missing. The clone stays pristine so `omz update` always fast-forwards. Customizations live in this repository instead:
 
-* `zsh/zsh_prompt` overrides agnoster theme functions after oh-my-zsh has
-  loaded. Add further prompt tweaks there, never patch `~/.oh-my-zsh`.
-* Plugins and options are configured in `zsh/zsh_plugins` and `zsh/zsh_options`.
+* `zsh/zsh_prompt` overrides agnoster theme functions after oh-my-zsh has loaded. Add further prompt tweaks there, never patch `~/.oh-my-zsh`.
+Plugins and options are configured in `zsh/zsh_plugins` and `zsh/zsh_options`.
 
-The agnoster prompt needs powerline glyphs; Ghostty covers them with its
-built-in Nerd Font fallback, no font install required.
+The agnoster prompt needs powerline glyphs. Ghostty covers them with its built-in Nerd Font fallback, no font install required. `zsh_options` pins `TERM=xterm-256color` so ssh sessions never send `xterm-ghostty` to hosts without its terminfo.
 
 ## Acknowledgements
 

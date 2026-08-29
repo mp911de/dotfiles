@@ -1,20 +1,24 @@
-# Redis, built from source.
-
 REDIS_VERSION=7.2.1
 redis_directory="$DEVTOOLS_HOME/redis"
 
 install_redis() {
-    if [[ -d "$redis_directory" ]]; then
-        e_success "Redis ${REDIS_VERSION} installed"
+    if [[ ! -d "$redis_directory" ]]; then
+        log_header "Cloning Redis..."
+        git clone https://github.com/redis/redis.git "$redis_directory" || { log_error "Redis clone failed"; return 1; }
+    fi
+
+    if [[ "$(git -C "$redis_directory" describe --tags 2>/dev/null)" == "$REDIS_VERSION" ]]; then
+        log_success "Redis ${REDIS_VERSION} installed"
         return 0
     fi
 
-    e_header "Installing Redis ${REDIS_VERSION}..."
-    if git clone https://github.com/redis/redis.git "$redis_directory" \
-        && git -C "$redis_directory" checkout "${REDIS_VERSION}" \
-        && make -C "$redis_directory/src"; then
-        e_success "Redis ${REDIS_VERSION} installed"
+    log_header "Building Redis ${REDIS_VERSION}..."
+    if git -C "$redis_directory" fetch --tags \
+        && git -C "$redis_directory" checkout "$REDIS_VERSION" \
+        && make -C "$redis_directory" distclean \
+        && make -C "$redis_directory"; then
+        log_success "Redis ${REDIS_VERSION} installed"
     else
-        e_error "Redis ${REDIS_VERSION} installation failed"
+        log_error "Redis ${REDIS_VERSION} installation failed"
     fi
 }

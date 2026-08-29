@@ -1,21 +1,19 @@
-# MongoDB Shell.
-
 MONGOSH_VERSION=2.5.10
 mongosh_directory="$DEVTOOLS_HOME/mongosh-${MONGOSH_VERSION}-${UNAME_O}-${UNAME_M}"
 
 install_mongosh() {
     if [[ -d "$mongosh_directory" ]]; then
-        e_success "mongosh ${MONGOSH_VERSION} installed"
+        log_success "mongosh ${MONGOSH_VERSION} installed"
         return 0
     fi
 
-    e_header "Installing mongosh ${MONGOSH_VERSION}..."
+    log_header "Installing mongosh ${MONGOSH_VERSION}..."
     if curl -sSL "https://downloads.mongodb.com/compass/mongosh-${MONGOSH_VERSION}-${UNAME_O}-${UNAME_M}.zip" -o "$DEVTOOLS_HOME/mongosh.zip" \
         && unzip -q "$DEVTOOLS_HOME/mongosh.zip" -d "$DEVTOOLS_HOME" \
         && chmod a+x "$mongosh_directory/bin/mongosh"; then
-        e_success "mongosh ${MONGOSH_VERSION} installed"
+        log_success "mongosh ${MONGOSH_VERSION} installed"
     else
-        e_error "mongosh ${MONGOSH_VERSION} installation failed"
+        log_error "mongosh ${MONGOSH_VERSION} installation failed"
     fi
     rm -f "$DEVTOOLS_HOME/mongosh.zip"
 }
