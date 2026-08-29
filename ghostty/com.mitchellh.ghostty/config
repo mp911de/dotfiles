@@ -27,7 +27,7 @@
 # # separated by equals signs.
 font-family = "Anonymice Powerline"
 font-family-bold = "Anonymice Powerline Bold"
-font-size = 20
+font-size = 18
 font-thicken = true
 font-thicken-strength = 20
 
@@ -39,7 +39,7 @@ window-decoration = true
 window-padding-x = 2
 window-padding-y = 2
 window-height = 32
-window-width = 116
+window-width = 90
 window-padding-balance = true
 window-save-state = always
 
@@ -56,6 +56,14 @@ background-opacity = 0.9
 background-blur = true
 
 keybind = super+equal=unbind
+# Default copy: plain text
+keybind = super+c=copy_to_clipboard:plain
+
+# Shift-copy: ANSI/VT escape sequences
+keybind = super+shift+c=copy_to_clipboard:vt
+
+# Ctrl+Cmd+C: rich HTML
+keybind = ctrl+super+c=copy_to_clipboard:html
 
 #
 # # Spacing around the equals sign does not matter.
